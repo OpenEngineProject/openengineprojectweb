@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor UI Guidelines · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="editor-ui-guidelines">Editor UI Guidelines</h1>
+<p>These guidelines describe how to author new editor UI against the current native UI system and theme. They are intentionally practical: prefer existing controls, classes, tokens, and panel patterns before introducing new visual language.</p>
+<h2 id="design-foundations">Design Foundations</h2>
+<p>Build editor UI as dense, predictable tooling. The editor is an operational workspace, so prioritize scanability, stable layout, and fast repeated action over decorative composition.</p>
+<ul>
+<li>Use existing registered controls and CSS classes before adding a new component.</li>
+<li>Use global tokens from <code>Apps/Editor/Assets/UI/theme/tokens.css</code> for shared color, type, spacing, radius, icon tint, and tree sizing.</li>
+<li>Use panel-local CSS only for layout or behavior that is genuinely specific to that panel.</li>
+<li>Avoid nested card-like containers. Use unframed full-width sections, rows, toolbars, scroll areas, repeated items, or modals.</li>
+<li>Keep text inside controls short. Buttons and toolbar controls should not grow or shift between states.</li>
+<li>Prefer icons for compact tool actions and text buttons for explicit commands.</li>
+</ul>
+<h2 id="tokens">Tokens</h2>
+<p>Current token groups:</p>
+<ul>
+<li>Colors:
+<ul>
+<li>Backgrounds: <code>--ui_color_bg_root</code>, <code>--ui_color_bg_panel</code>, <code>--ui_color_bg_tabbar</code>, <code>--ui_color_bg_toolbar</code>, <code>--ui_color_bg_grid</code>, <code>--ui_color_bg_hover</code>, <code>--ui_color_bg_selected</code>.</li>
+<li>Borders: <code>--ui_color_border</code>, <code>--ui_color_border_subtle</code>, <code>--ui_color_border_panel</code>.</li>
+<li>Text: <code>--ui_color_text</code>, <code>--ui_color_text_muted</code>, <code>--ui_color_text_bright</code>, <code>--ui_color_text_dim</code>.</li>
+<li>Accents: <code>--ui_color_accent</code>, <code>--ui_color_accent_blue</code>, <code>--ui_color_accent_blue_hover</code>, <code>--ui_color_accent_blue_pressed</code>, <code>--ui_color_accent_green</code>.</li>
+</ul>
+</li>
+<li>Status colors not yet formalized as shared tokens:
+<ul>
+<li>Warning/amber text: <code>#dcdcaa</code>, used by log warnings and Script Errors warnings.</li>
+<li>Profiler orange: <code>#f08040</code>, used by Visual Profiler GPU-bound labels and chart borders.</li>
+<li>VCS warning orange/yellow: <code>#FFAA00</code>.</li>
+<li>Animation yellow tags: <code>#f0c850</code>.</li>
+</ul>
+</li>
+<li>Typography:
+<ul>
+<li><code>--ui_font_family</code>, <code>--ui_font_family_default</code>, <code>--ui_font_mono</code>, <code>--ui_font_script</code>.</li>
+<li><code>--ui_font_size_base</code>, <code>--ui_font_size_list</code>, <code>--ui_font_size_small</code>, <code>--ui_font_size_header</code>.</li>
+</ul>
+</li>
+<li>Spacing:
+<ul>
+<li><code>--ui_spacing_xs</code>, <code>--ui_spacing_sm</code>, <code>--ui_spacing_md</code>, <code>--ui_spacing_lg</code>, <code>--ui_spacing_xl</code>.</li>
+</ul>
+</li>
+<li>Radius:
+<ul>
+<li><code>--ui_radius_sm</code>, <code>--ui_radius_md</code>.</li>
+</ul>
+</li>
+<li>Icon tint:
+<ul>
+<li><code>--ui_icon_tint_default</code>, <code>--ui_icon_tint_active</code>, <code>--ui_icon_tint_hover</code>.</li>
+</ul>
+</li>
+<li>Tree sizing:
+<ul>
+<li><code>--ui_tree_icon_size</code>, <code>--ui_tree_foldout_size</code>, <code>--ui_tree_icon_padding</code>, <code>--ui_tree_icon_padding_rtl</code>.</li>
+</ul>
+</li>
+</ul>
+<p>When a value is shared across panels, add or reuse a token. When a value is local to one panel, keep it in that panel stylesheet.</p>
+<h2 id="layout-rules">Layout Rules</h2>
+<ul>
+<li>Every flexible panel root should use <code>min-width: 0</code> and <code>min-height: 0</code> so children can shrink and scroll correctly.</li>
+<li>Scrollable content needs a constrained parent. Do not rely on content height to create scroll ranges.</li>
+<li>Virtualized grids must keep <code>.grid</code> as a single-column flex container; the internal virtual content owns cell placement.</li>
+<li>Split panes should use <code>WeightedPane</code> plus <code>Splitter</code>; splitter drags must mark layout dirty and keep adjacent panes shrink-safe.</li>
+<li>Mounted panel subtrees should be treated like portal content: style, focus, hit testing, and lifecycle must work through the <code>Mount</code> host.</li>
+<li>Toolbar rows should have fixed height and stable icon hit areas.</li>
+<li>Inspector rows should use a two-part pattern: label cell plus field cell. Field cells must be allowed to shrink.</li>
+<li>Fixed-format controls such as icon buttons, numeric cells, vector components, toolbar buttons, and grid thumbnails should have explicit dimensions or min/max constraints.</li>
+<li>Do not place panels, scroll views, or tool surfaces inside decorative cards. Use borders/backgrounds only where they communicate a real boundary.</li>
+</ul>
+<h2 id="styling-rules">Styling Rules</h2>
+<ul>
+<li>Prefer classes and theme tokens over inline style overrides.</li>
+<li>Use <code>StyleOverrides</code> from C++ for dynamic values, measured sizes, live textures, or state that cannot be expressed cleanly in CSS.</li>
+<li>Use <code>RequestSubtreeStyleAssetPath("UI/controls/&#x3C;Control>.css")</code> when a native control owns reusable child structure and local styling.</li>
+<li>Put reusable control styles in <code>Apps/Editor/Assets/UI/controls</code>.</li>
+<li>Put global theme-wide editor styles in <code>Apps/Editor/Assets/UI/theme</code>.</li>
+<li>Put panel-specific styles in <code>Apps/Editor/Assets/UI/panels</code>.</li>
+<li>Use <code>hidden</code> for complete removal from layout. The theme intentionally raises specificity with <code>.hidden.hidden</code>.</li>
+<li>Use <code>background-image-tint</code> for icon color states instead of opacity when the hit area/background must remain visually stable.</li>
+<li>Keep radii small; current editor tokens provide 4 px and 6 px radii.</li>
+<li>Use orange/amber only for warning, caution, validation-in-progress, profiler GPU distinction, or existing category chips. It should not replace blue as the default selection/focus accent.</li>
+</ul>
+<h2 id="naming">Naming</h2>
+<p>Use predictable CSS naming so classes can be found from C++ and theme files.</p>
+<ul>
+<li>Reusable controls: <code>&#x3C;component></code>, <code>&#x3C;component>-&#x3C;part></code>, <code>&#x3C;component>-&#x3C;state></code>.</li>
+<li>Inspector UI: <code>inspector-*</code>.</li>
+<li>Toolbar UI: <code>toolbar-*</code>, <code>editor-top-toolbar</code>, <code>editor-bottom-toolbar</code>, or panel-local toolbar names.</li>
+<li>Dock/layout UI: <code>dock-*</code>, <code>Dock*</code> UXML config nodes, and panel ids that match the panel inventory.</li>
+<li>Panel-specific classes: prefix with the panel or feature name, such as <code>render-graph-*</code>, <code>vram-*</code>, <code>node-graph-*</code>, or <code>script-errors-*</code>.</li>
+<li>Icon classes should end in <code>-icon</code> and map to shipped assets in <code>Apps/Editor/Assets/Icons</code>.</li>
+</ul>
+<p>Avoid one-off generic names such as <code>container</code>, <code>box</code>, <code>row2</code>, or <code>new-style</code> in editor UI assets.</p>
+<h2 id="behavior-rules">Behavior Rules</h2>
+<ul>
+<li><code>UIManager::Update(deltaTime, interactive)</code> owns time advancement, dispatcher processing, input dispatch, focus, hover, capture, and layout.</li>
+<li><code>UIManager::Render(RenderGraph&#x26;)</code> is geometry-only and should not dispatch events or mutate editor data.</li>
+<li>UI event handlers run during the update phase. They may trigger editor actions, but editor data changes should still use the established editor edit APIs.</li>
+<li>Interactive edits should preview during drag/scrub and commit once at the end of the gesture.</li>
+<li>Inspector refresh code must not overwrite focused field subtrees.</li>
+<li>Prefer posting deferred actions when a control needs to mutate tree structure after layout or during a safe dispatcher drain.</li>
+<li>Use existing drag/drop payload and ghost renderer helpers for editor drag behavior.</li>
+<li>Use existing specialized widgets for scene view, animation/timeline, color picking, charts, and logs before creating new primitives.</li>
+</ul>
+<h2 id="panel-patterns">Panel Patterns</h2>
+<p>Docked panels:</p>
+<ul>
+<li>Add the panel to <code>DockPanels</code> in <code>layout.uxml</code> when it should be available from the dock inventory.</li>
+<li>Use <code>layout="panels/&#x3C;Panel>.uxml"</code> and <code>style="panels/&#x3C;Panel>.css"</code> for data-driven panel structure when practical.</li>
+<li>Keep panel roots flexible and let the dockspace own outer sizing.</li>
+</ul>
+<p>Inspector panels:</p>
+<ul>
+<li>Use <code>InspectorSection</code> for component sections.</li>
+<li>Use <code>inspector-row</code>, <code>inspector-label</code>, and <code>inspector-field</code> for properties.</li>
+<li>Pair sliders with numeric fields when precision matters.</li>
+<li>Use <code>AssetField</code> for asset references instead of rebuilding picker behavior.</li>
+</ul>
+<p>Toolbars:</p>
+<ul>
+<li>Use <code>icon-button</code> for compact actions and provide tooltip text from C++ where the icon is not self-explanatory.</li>
+<li>Keep top toolbar sections as left, center, and right flex regions.</li>
+<li>Do not let toolbar overflow overlap neighboring sections; clipping is preferred to layout collision.</li>
+</ul>
+<p>Modals:</p>
+<ul>
+<li>Use modal-specific root classes and attach <code>UI/controls/Modal.css</code> for shared transition behavior when relevant.</li>
+<li>Keep initial focus predictable and provide clear cancel/confirm actions.</li>
+<li>Modal body content can be richer, but header/footer control positions should stay stable.</li>
+</ul>
+<h2 id="asset-and-theme-loading">Asset And Theme Loading</h2>
+<ul>
+<li>Global editor styles are imported through <code>Apps/Editor/Assets/UI/theme.css</code>.</li>
+<li>Subtree control styles are requested by controls and attached under the relevant subtree.</li>
+<li>Panel styles can be declared in the dock panel inventory or attached by panel code.</li>
+<li>UXML <code>class</code> attributes may include multiple classes separated by spaces.</li>
+<li>Inline <code>style</code> is acceptable for layout configuration or one-off authored examples, but should not become the default way to theme reusable UI.</li>
+</ul>
+<h2 id="new-ui-checklist">New UI Checklist</h2>
+<ul>
+<li>Reuse an existing native control or editor helper where one exists.</li>
+<li>Choose classes from the component catalog before adding new CSS.</li>
+<li>Use tokens for shared colors, spacing, type, radii, and icon tint.</li>
+<li>Ensure flexible roots and scroll areas have <code>min-width: 0</code> and <code>min-height: 0</code>.</li>
+<li>Verify hover, active, focus, selected, disabled, empty, and drag/drop states where applicable.</li>
+<li>Keep control dimensions stable across state changes.</li>
+<li>Make data changes through editor edit APIs and preserve preview/commit semantics.</li>
+<li>Add new reusable styles to <code>controls/</code>, panel-only styles to <code>panels/</code>, and cross-editor styles to <code>theme/</code>.</li>
+</ul>
+  </main>
+</body>
+</html>

@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Humanoid Retargeting Architecture · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="humanoid-retargeting--architecture">Humanoid Retargeting — Architecture</h1>
+<p>This is the implementation-light architecture overview. For the full design
+rationale and per-phase deliverables, see
+<a href="HumanoidRetargetingPlan.md"><code>HumanoidRetargetingPlan.md</code></a>. For the high-
+level vision, see <a href="HumanoidRetargeting.md"><code>HumanoidRetargeting.md</code></a>.</p>
+<hr>
+<h2 id="the-6-stage-pipeline-plus-stage-7-palette-emit">The 6-stage pipeline (plus Stage 7 palette emit)</h2>
+<p>The retargeter runs once per character per frame:</p>
+<pre><code>0. Sample             AnimationClip -> source SkeletonData -> AnimationPose
+1. Encode             qSrcDelta = bake * sourceClipKey (Formulation A bake-
+                      with-parent-shift; baked once at session-build)
+2. FK transport       Mode A (one-to-one, fast path), Mode B (transport-
+                      then-slerp, unequal chains), Mode C (none, hold target
+                      retarget pose), Mode D (world-rotation slerp-along-arc,
+                      spine)
+3. Translation        Hip translation scaled by tgtHipHeight / srcHipHeight;
+                      non-translation bones forced to retarget pose
+4. IK goals           Per-chain end-effector goals computed in chain-root-
+                      local frame (uniform per-chain length ratio)
+5. IK solve           TwoBoneIK (closed-form analytical) for limbs; FABRIK
+                      (fixed 10-iter for determinism) for spine
+6. Op stack           AttachmentPassthrough -> LookAt -> [BodyIntersect v2]
+                      -> FootLock; canonical order, user-reorderable
+7. Pose-to-palette    Per-bone parent-walk -> mat4 skin = meshRootInverse *
+                      world * inverseBind; written into SkinPaletteAtlas
+</code></pre>
+<p>Stages 1-3 fix bind-orientation differences. Stages 4-5 fix proportion
+mismatches. Stage 6 handles game-specific behaviors and accessories. Stage 7
+is the consumer-side emit that lets the existing instanced rasterization path
+read retargeted skin matrices unchanged.</p>
+<hr>
+<h2 id="gpu-residency-table">GPU residency table</h2>
+<p>Each stage in the shipped pipeline:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Stage</th><th>GPU-resident?</th><th>Compute shader</th><th>Render-graph pass</th></tr></thead><tbody><tr><td>0 (sample)</td><td>Yes (existing)</td><td><code>animation_compute.comp</code></td><td><code>AnimationComputePass</code></td></tr><tr><td>1 (encode)</td><td>Yes</td><td><code>retarget_encode.comp</code></td><td><code>RetargetEncodePass</code></td></tr><tr><td>2 (FK transport)</td><td>Yes</td><td><code>retarget_fk_transport.comp</code> (Modes A+B), <code>retarget_fk_world_arc.comp</code> (Mode D)</td><td><code>RetargetFKPass</code></td></tr><tr><td>3 (translate)</td><td>Yes</td><td><code>retarget_translate.comp</code></td><td><code>RetargetTranslatePass</code></td></tr><tr><td>4 (IK goals)</td><td>Yes</td><td><code>retarget_ik_goal.comp</code></td><td><code>RetargetIKGoalPass</code></td></tr><tr><td>5 (IK solve)</td><td>Yes</td><td><code>retarget_two_bone_ik.comp</code>, <code>retarget_fabrik.comp</code></td><td><code>RetargetIKSolvePass</code></td></tr><tr><td>6 (op stack)</td><td>Mixed</td><td><code>retarget_op_attachment.comp</code>, <code>retarget_op_lookat.comp</code>, <code>retarget_op_foot_lock.comp</code></td><td><code>RetargetOpStackPass</code> (orchestrator)</td></tr><tr><td>7 (palette emit)</td><td>Yes</td><td><code>retarget_pose_to_palette.comp</code></td><td><code>RetargetPoseToPalettePass</code></td></tr></tbody></table>
+<p>CPU fallback (<code>r.RetargetCPU=1</code> / <code>GE_RETARGET_CPU=1</code>) runs the whole
+pipeline through <code>RetargetNode</code> and <code>OpStackNode</code> subclasses. CI runs both
+paths and cross-validates within tiered tolerance bands:</p>
+<ul>
+<li>FK transport (Stages 1-3): 1e-4 deg per bone</li>
+<li>IK-active chains (Stage 5): 1e-2 deg per bone</li>
+<li>Op-stack outputs: 1e-3 deg per bone</li>
+<li>Pose-to-palette: 1e-5 element-wise (no transcendentals)</li>
+</ul>
+<p>Cross-driver tests use the same bands times 10x looser to account for
+vendor-specific FMA orderings.</p>
+<hr>
+<h2 id="ssbo-layout-gpu-resident-path">SSBO layout (GPU-resident path)</h2>
+<p>Three SSBOs allocated by <code>RetargetGPUDataStore</code> at session-bake time. Per
+character, one slot in each.</p>
+<h3 id="retargetmapdatassbo-immutable-until-asset-reload"><code>RetargetMapDataSSBO</code> (immutable until asset reload)</h3>
+<pre><code>MapHeader (128 bytes)
+  - bone count, chain count, attachment count
+  - parentIndices offset, srcRestPos offset
+  - per-canonical bone source/target indices
+  - srcRetargetPose / tgtRetargetPose / M_src / M_tgt quaternions
+  - per-chain dispatch table (solverKind, chainKind, blendToSource,
+    extension, srcChainRoot/Tip, tgtChainRoot/Tip)
+  - per-attachment passthrough config
+  - tgtInverseBindOffset, tgtJointNodesOffset, tgtSkinJointCount,
+    tgtMeshRootInverseOffset, attachmentTableOffset, attachmentCount,
+    footTgtIndicesPacked, footSrcIndicesPacked, headTgtBoneIndex,
+    leftEye/rightEyeTgtBoneIndex, footLockSpeedThresholdSq,
+    footLockBlend
+</code></pre>
+<p>12-16 KB per character. Uploaded once on <code>HumanoidRig</code> / <code>RetargetMap</code> /
+<code>SkeletonProfile</code> reload.</p>
+<h3 id="retargetcharacterstatessbo-mutable-per-frame"><code>RetargetCharacterStateSSBO</code> (mutable per frame)</h3>
+<pre><code>StateHeader (96 bytes)
+  - srcWorldPoseOffset, tgtWorldPoseOffset (post-Stage-2 world poses)
+  - ikGoalsOffset, ikPrevPoleOffset, ikScratchOffset
+  - paletteAtlasOffsetMat4, skinJointCount (Stage 7 palette emit)
+  - prevFootPosOffset (FootLock prev-frame double buffer)
+  - lookAtTargetOffset, opScratchOffset
+</code></pre>
+<p>~8 KB per character. Source-pose snapshot lives in a persistent slot, not
+a transient render-graph buffer (the <code>PerFrameWritePool</code> was the wrong
+fit — 4-slot host-visible CPU-write ring). Per round-3 audit.</p>
+<h3 id="output-skinpaletteatlas">Output: <code>SkinPaletteAtlas</code></h3>
+<p>Existing engine SSBO. Stage 7 writes the final 4x4 skin matrices for the
+target skeleton at the character’s allocated slot. The existing
+<code>WorldDrawBuilder</code> -> <code>DrawBatchCompactor</code> -> Forward+ rasterization path
+consumes the palette unchanged — retargeted instances batch identically to
+non-retargeted ones.</p>
+<hr>
+<h2 id="hot-reload-chain">Hot-reload chain</h2>
+<p>Three asset types feed the retargeter. Hot-reload propagates as follows:</p>
+<pre><code>SkeletonProfile.profile.json
+   |
+   |  AssetReloadInvalidator (per-asset event)
+   v
+RetargetAssetWatcher (one per HumanoidRetargetSystem)
+   |
+   |  marks all matching HumanoidRig / RetargetMap dirty
+   v
+HumanoidRetargetSystem::DrainHotReloadEvents()  &#x3C;-- runs at top of Update,
+                                                   before parallel iter
+   |
+   |  per CharacterEntry: clears CpuNode, sets MapDirty
+   v
+Next frame: PrimeGPU re-uploads MapData SSBO; CPU node is rebuilt lazily
+</code></pre>
+<p>The drain runs at the top of <code>Update()</code> BEFORE the parallel iteration so
+no character processes a torn pointer mid-frame (the deferred-since-Phase-1
+design fence).</p>
+<pre><code>HumanoidRig.humanoidrig.json
+   |
+   v  (same path; both rigs that reference this rig invalidate together)
+[same as profile]
+
+RetargetMap.retargetmap.json
+   |
+   v  (only the entries that hold this map's GUID invalidate)
+[same as profile]
+
+AnimationClip.glb / .anim
+   |
+   v  AssetReloadInvalidator -> ClipStore -> sample-time reads new keys
+[no rig rebuild needed]
+</code></pre>
+<p>The <code>.cache/retarget/&#x3C;SourceRigGUID>/&#x3C;ClipGUID>.cache.bin</code> Formulation A
+bake is rebuilt lazily on next Sample when:</p>
+<ul>
+<li>the source rig reloads,</li>
+<li>the clip reloads, or</li>
+<li>the source rig’s retarget pose is edited.</li>
+</ul>
+<hr>
+<h2 id="auto-bootstrap-data-flow">Auto-bootstrap data flow</h2>
+<p>When the editor (or runtime) detects a clip-skeleton mismatch:</p>
+<pre><code>User assigns AnimationClip to entity -> AnimatorRef
+   |
+   |  detect: clip.skeletonGUID != entity.SkeletonRef.runtimeId
+   v
+HumanoidRetargetBootstrap::TrySetupAutomatically(inputs, &#x26;record)
+   |
+   |  resolve / auto-import HumanoidRig for source and target
+   |  resolve / auto-create RetargetMap (default OneToOne pairings)
+   |  build banner string
+   v
+record.SourceRigGUID, record.TargetRigGUID, record.MapGUID, record.BannerText
+   |
+   |  editor: show RetargetBootstrapBanner (silenceable per-folder)
+   |  user clicks OK -> AddComponent(HumanoidRetargeterComponent)
+   v
+HumanoidRetargetSystem picks up the entity on next Update
+</code></pre>
+<p>Same-skeleton case: no component added, the existing same-rig sample path
+runs unchanged.</p>
+<hr>
+<h2 id="ecs-placement">ECS placement</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>System</th><th>Order</th><th>Wave</th></tr></thead><tbody><tr><td><code>AnimationSystem</code></td><td>base anim wave</td><td>reads <code>AnimatorRef</code>; produces same-rig pose</td></tr><tr><td><code>HumanoidRetargetSystem</code></td><td>base anim wave + 1</td><td>reads <code>HumanoidRetargeterComponent</code> + <code>SkeletonRef</code>; produces cross-rig pose</td></tr><tr><td><code>SkinningUploadSystem</code></td><td>next wave (depends on anim wave)</td><td>reads <code>SkeletonRuntimeState::CompactSkinMatrices</code>; uploads to atlas</td></tr></tbody></table>
+<p>Same-rig and cross-rig characters coexist. An entity that carries
+<code>HumanoidRetargeterComponent</code> should NOT carry <code>AnimatorRef</code> — the two
+paths route to different runtimes and would race on the same skin matrices.</p>
+<hr>
+<h2 id="performance-budget-gpu-resident-60-fps">Performance budget (GPU-resident, 60 FPS)</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Workload</th><th>GPU cost</th><th>CPU cost</th><th>Notes</th></tr></thead><tbody><tr><td>1 character</td><td>~50 us GPU</td><td>~10 us CPU</td><td>Dispatch overhead dominates</td></tr><tr><td>100 characters</td><td>~500 us GPU</td><td>~1 ms CPU</td><td>LOD selection + dispatch submission</td></tr><tr><td>500 characters (stretch)</td><td>~1.5 ms GPU</td><td>~3 ms CPU</td><td>LOD strips IK off-screen; FK-only crowd</td></tr></tbody></table>
+<p>CPU fallback (<code>r.RetargetCPU=1</code>):</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Workload</th><th>CPU cost (Debug)</th></tr></thead><tbody><tr><td>1 character</td><td>~315 us</td></tr><tr><td>100 characters</td><td>~13.6 ms median (Debug, 24-bone synthetic)</td></tr><tr><td>500 characters</td><td>~68 ms median (Debug, 24-bone synthetic)</td></tr></tbody></table>
+<p>Phase 8 ships a CI gate that compares the 100-character median against
+<code>Tools/ai/retarget-redesign/baselines/humanoid_retarget_100char_Debug.json</code>
+at 20% tolerance; refresh with <code>GE_RETARGET_BASELINE_REFRESH=1</code>.</p>
+<hr>
+<h2 id="lod-policy-phase-8">LOD policy (Phase 8)</h2>
+<p><code>HumanoidRetargetLOD</code> enum on <code>HumanoidRetargeterComponent</code>:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Level</th><th>Stages run</th><th>Saves vs Full</th><th>Use case</th></tr></thead><tbody><tr><td><code>Full</code></td><td>1-7 + op stack</td><td>0</td><td>Close, on-screen, gameplay-relevant</td></tr><tr><td><code>NoOps</code></td><td>1-7, no op stack</td><td>~50 us / char</td><td>Mid-distance crowd</td></tr><tr><td><code>FKOnly</code></td><td>1-3, 7</td><td>~200 us / char</td><td>Far crowd; IK + ops invisible</td></tr><tr><td><code>PoseHold</code></td><td>none; reuse last frame’s pose</td><td>full pipeline</td><td>Off-screen / behind-camera</td></tr></tbody></table>
+<p>Selection heuristic in <code>RetargetSubmission::SelectRetargetLOD(LODInputs)</code>:
+distance + on-screen flag. Per-character override via
+<code>HumanoidRetargeterComponent::LODOverride</code> + <code>LODOverrideEnabled = true</code>.</p>
+<hr>
+<h2 id="whats-not-in-the-gpu-resident-path">What’s NOT in the GPU-resident path</h2>
+<ul>
+<li><strong>Editor preview / debugging.</strong> <code>r.RetargetCPU=1</code> env-var force-routes a
+single character through the CPU <code>RetargetNode</code> for inspector preview.</li>
+<li><strong>CPU-only ops (v2).</strong> <code>BodyIntersectOp</code> (SDF query) and <code>HandLockOp</code>
+(combat hold) need a 1-frame-delayed CPU readback. Not shipped in v1.</li>
+<li><strong>Peer-entity source mode.</strong> v2; current source is via
+<code>HumanoidRetargeterComponent::SourceClipIndex</code> only.</li>
+</ul>
+<hr>
+<h2 id="auto-import-dispatch-phase-10">Auto-import dispatch (Phase 10)</h2>
+<p>When the asset pipeline imports a glTF / glb / VRM file, the auto-import
+flow probes three paths in order and uses the first that produces a
+usable <code>HumanoidRig</code>:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Stage</th><th>Trigger</th><th>Bone-binding source</th></tr></thead><tbody><tr><td>1. VRM 1.0</td><td><code>extensions.VRMC_vrm</code> (or legacy <code>VRM</code>)</td><td><code>humanoid.humanBones</code> map (object form in 1.0; array form in 0.x)</td></tr><tr><td>2. KHR_humanoid</td><td><code>extensions.KHR_humanoid</code></td><td><code>humanBones</code> map (camelCase keys)</td></tr><tr><td>3. Heuristic</td><td>always (FBX, plain glTF, manual import)</td><td><code>HumanoidNameMatcher</code> regex priority table</td></tr></tbody></table>
+<p>Entry point: <code>Animation::AutoImportHumanoidRigDispatch(gltf, skel, profile, outRig, outPath)</code>. The path taken is reported via the
+<code>HumanoidImportPath</code> enum (<code>VRM1</code> / <code>KHRHumanoid</code> / <code>Heuristic</code> /
+<code>None</code>) and logged at INFO level. The same retarget-pose bake runs
+on every path so an A-pose VRM avatar still produces non-identity
+shoulder/upper-arm <code>RetargetPoseRotation</code> deltas.</p>
+<p>VRM 0.x detection: when the legacy <code>VRM</code> extension is present (rather
+than <code>VRMC_vrm</code>), the importer logs a warning about the forward-axis
+flip (VRM 0.x uses -Z forward; VRM 1.0 uses +Z forward) and applies a
+180-degree Y-axis rotation to the source skeleton’s rest rotations on
+a working copy. The bone-name list (<code>hips</code>, <code>leftUpperArm</code>, …) is
+identical between 0.x and 1.0; only the wire format differs (array vs
+object) and the forward-axis convention.</p>
+<p>Phase 10 v1 does NOT import VRM-specific runtime systems — spring
+bones (<code>VRMC_springBone</code>), blendshape clips (<code>VRMC_vrm.expressions</code>),
+and look-at metadata (<code>VRMC_vrm.lookAt</code>) are captured in
+<code>VRM1Metadata</code> for downstream consumers but treated as
+ImportableButIgnored by the retarget pipeline itself. The face /
+expression / spring-bone runtimes are out-of-scope; when they ship,
+they read the metadata struct produced by <code>ImportFromVRM1</code>.</p>
+  </main>
+</body>
+</html>

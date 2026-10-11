@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Game Engine User Guide · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="game-engine-user-guide">Game Engine User Guide</h1>
+<p>Welcome to the Game Engine! This guide will help you get started with building games using our high-performance C++ engine with C# scripting support.</p>
+<h2 id="quick-start">Quick Start</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<p>Before you begin, make sure you have:</p>
+<ul>
+<li><strong>Visual Studio 2022</strong> with C++ workload</li>
+<li><strong>.NET 8.0 SDK</strong> or later</li>
+<li><strong>CMake 3.20+</strong></li>
+<li><strong>Git</strong> (for cloning the repository)</li>
+<li><strong>Windows 10/11</strong> (primary supported platform)</li>
+</ul>
+<h3 id="installation">Installation</h3>
+<ol>
+<li>
+<p><strong>Clone the repository</strong>:</p>
+<pre><code class="language-bash">git clone https://github.com/Lunarsong/GameEngine.git
+cd GameEngine
+</code></pre>
+</li>
+<li>
+<p><strong>Generate build files</strong>:</p>
+<pre><code class="language-bash">mkdir build
+cd build
+cmake .. -G "Visual Studio 17 2022" -A x64
+</code></pre>
+</li>
+<li>
+<p><strong>Build C# scripts first</strong>:</p>
+<pre><code class="language-bash">cd Scripts
+dotnet build --configuration Debug
+cd ..
+</code></pre>
+</li>
+<li>
+<p><strong>Build the engine</strong>:</p>
+<pre><code class="language-bash">cd build
+cmake --build . --config Debug
+</code></pre>
+</li>
+<li>
+<p><strong>Run the engine</strong>:</p>
+<pre><code class="language-bash"># Run your game
+.\bin\Debug\Runtime.exe
+
+# Or run engine tests
+.\bin\Debug\GameEngineTests.exe
+</code></pre>
+</li>
+</ol>
+<p>You should see the engine start up and be ready for your game development!</p>
+<h2 id="creating-your-first-game">Creating Your First Game</h2>
+<h3 id="step-1-set-up-your-project-structure">Step 1: Set Up Your Project Structure</h3>
+<p>Create your game project alongside the engine:</p>
+<pre><code>YourGame/
+├── Assets/          # Your game assets
+├── Scripts/         # Your C# game scripts
+├── Config/          # Game configuration
+└── YourGame.sln     # Your game solution
+</code></pre>
+<h3 id="step-2-create-game-scripts">Step 2: Create Game Scripts</h3>
+<p>Create C# scripts in the <code>Scripts/</code> directory:</p>
+<pre><code class="language-csharp">// Scripts/Player.cs
+using System;
+
+namespace YourGame.Scripts
+{
+    public class Player
+    {
+        private float m_x, m_y;
+        private float m_health = 100.0f;
+
+        public void Update(float deltaTime)
+        {
+            // Your game logic here
+        }
+
+        public void Move(float deltaX, float deltaY)
+        {
+            m_x += deltaX;
+            m_y += deltaY;
+            Console.WriteLine($"Player moved to ({m_x}, {m_y})");
+        }
+    }
+}
+</code></pre>
+<h3 id="step-3-use-engine-features">Step 3: Use Engine Features</h3>
+<h4 id="asset-management">Asset Management</h4>
+<pre><code class="language-csharp">// Load assets using the engine
+int assetCount = NativeInterop.GetAssetCount();
+bool loaded = NativeInterop.LoadAsset("player_texture.png");
+</code></pre>
+<h4 id="logging">Logging</h4>
+<pre><code class="language-csharp">// Log to the engine console
+NativeInterop.LogInfo("Player initialized!");
+NativeInterop.LogWarning("Low health warning");
+NativeInterop.LogError("Critical error occurred");
+</code></pre>
+<h4 id="inter-script-communication">Inter-Script Communication</h4>
+<pre><code class="language-csharp">// Scripts can call each other
+public class GameManager
+{
+    private Player m_player = new Player();
+
+    public void Update(float deltaTime)
+    {
+        m_player.Update(deltaTime);
+
+        // Use utility functions from other scripts
+        int result = MathUtilities.Add(10, 20);
+    }
+}
+</code></pre>
+<h2 id="project-structure">Project Structure</h2>
+<h3 id="engine-components">Engine Components</h3>
+<ul>
+<li>
+<p><strong>Engine/</strong> - Core engine library</p>
+<ul>
+<li><code>Assets/</code> - Asset management system</li>
+<li><code>Core/</code> - Engine core (Application, Logger, etc.)</li>
+<li><code>Scripting/</code> - C# integration and CoreCLR hosting</li>
+<li><code>Memory/</code> - Memory management</li>
+<li><code>Platform/</code> - Platform-specific code</li>
+</ul>
+</li>
+<li>
+<p><strong>Runtime/</strong> - Game runtime executable</p>
+</li>
+<li>
+<p><strong>Editor/</strong> - Visual editor (basic structure)</p>
+</li>
+<li>
+<p><strong>Scripts/</strong> - C# game scripts</p>
+</li>
+<li>
+<p><strong>Assets/</strong> - Game assets (textures, audio, etc.)</p>
+</li>
+</ul>
+<h3 id="your-game-structure">Your Game Structure</h3>
+<p>When creating your own game, organize it like this:</p>
+<pre><code>YourGame/
+├── Assets/
+│   ├── Textures/
+│   ├── Audio/
+│   └── Models/
+├── Scripts/
+│   ├── Player.cs
+│   ├── Enemy.cs
+│   └── GameManager.cs
+├── Config/
+│   └── game_config.json
+└── README.md
+</code></pre>
+<h2 id="building-and-running">Building and Running</h2>
+<h3 id="development-workflow">Development Workflow</h3>
+<ol>
+<li><strong>Make changes</strong> to C# scripts or assets</li>
+<li><strong>Hot-reloading</strong> automatically detects changes</li>
+<li><strong>Test immediately</strong> without rebuilding</li>
+<li><strong>Build C# scripts</strong> when adding new files:
+<pre><code class="language-bash">cd Scripts
+dotnet build
+</code></pre>
+</li>
+</ol>
+<h3 id="build-configurations">Build Configurations</h3>
+<ul>
+<li>
+<p><strong>Debug</strong>: Full debugging, slower performance</p>
+<pre><code class="language-bash">cmake --build . --config Debug
+</code></pre>
+</li>
+<li>
+<p><strong>Release</strong>: Optimized release build</p>
+<pre><code class="language-bash">cmake --build . --config Release
+</code></pre>
+</li>
+</ul>
+<h3 id="running-tests">Running Tests</h3>
+<p>The engine includes comprehensive tests:</p>
+<pre><code class="language-bash"># Run integration tests (included in main executable)
+.\bin\Debug\GameEngine.exe
+
+# The tests will automatically:
+# - Test asset system
+# - Test C# scripting
+# - Test hot-reloading
+# - Test C++ to C# interop
+</code></pre>
+<h2 id="examples-and-samples">Examples and Samples</h2>
+<h3 id="basic-game-example">Basic Game Example</h3>
+<p>Located in <code>Examples/BasicGame/</code>:</p>
+<ul>
+<li><strong>Player.cs</strong> - Player character with movement and health</li>
+<li><strong>Enemy.cs</strong> - AI enemy with pathfinding</li>
+<li><strong>GameManager.cs</strong> - Game state management</li>
+</ul>
+<p>To run this example:</p>
+<ol>
+<li>Copy files from <code>Examples/BasicGame/</code> to <code>Scripts/</code></li>
+<li>Build and run the engine</li>
+<li>Watch the console for game simulation</li>
+</ol>
+<h3 id="scripting-demo">Scripting Demo</h3>
+<p>Located in <code>Examples/ScriptingDemo/</code>:</p>
+<ul>
+<li><strong>MathUtilities.cs</strong> - Utility functions</li>
+<li><strong>GameLogic.cs</strong> - Inter-script communication demo</li>
+<li><strong>NativeInterop.cs</strong> - C++ to C# interop examples</li>
+</ul>
+<h3 id="hot-reloading-demo">Hot-Reloading Demo</h3>
+<p>The engine automatically demonstrates hot-reloading:</p>
+<ol>
+<li><strong>Run the engine</strong></li>
+<li><strong>Watch</strong> as it creates a test script</li>
+<li><strong>After 5 seconds</strong>, it modifies the script</li>
+<li><strong>Observe</strong> instant change detection</li>
+</ol>
+<h2 id="engine-features">Engine Features</h2>
+<h3 id="asset-system">Asset System</h3>
+<ul>
+<li><strong>GUID-based references</strong> - Assets never break when moved</li>
+<li><strong>Hot-reloading</strong> - Changes detected instantly</li>
+<li><strong>Metadata system</strong> - Automatic .meta file generation</li>
+<li><strong>Type detection</strong> - Automatic asset type classification</li>
+</ul>
+<pre><code class="language-csharp">// Using assets in C#
+int assetCount = NativeInterop.GetAssetCount();
+bool loaded = NativeInterop.LoadAsset("my_texture.png");
+</code></pre>
+<h3 id="c-scripting">C# Scripting</h3>
+<ul>
+<li><strong>.NET 8.0 support</strong> - Modern C# features</li>
+<li><strong>Inter-script communication</strong> - Scripts can call each other</li>
+<li><strong>Engine integration</strong> - Access engine functions from C#</li>
+<li><strong>Hot-reloading</strong> - Modify scripts without restart</li>
+</ul>
+<h3 id="performance">Performance</h3>
+<ul>
+<li><strong>60 FPS</strong> stable main loop</li>
+<li><strong>Sub-millisecond</strong> file change detection</li>
+<li><strong>Memory efficient</strong> with RAII and smart pointers</li>
+<li><strong>Clean shutdown</strong> with proper resource cleanup</li>
+</ul>
+<h2 id="debugging-and-troubleshooting">Debugging and Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<ol>
+<li>
+<p><strong>“Assembly not found”</strong></p>
+<ul>
+<li>Make sure to build C# scripts first: <code>dotnet build Scripts/</code></li>
+</ul>
+</li>
+<li>
+<p><strong>“CoreCLR initialization failed”</strong></p>
+<ul>
+<li>Ensure .NET 8.0 SDK is installed</li>
+<li>Check that <code>Scripts/bin/Debug/net8.0/</code> exists</li>
+</ul>
+</li>
+<li>
+<p><strong>“Asset not found”</strong></p>
+<ul>
+<li>Check that assets are in the <code>Assets/</code> directory</li>
+<li>Verify .meta files are generated</li>
+</ul>
+</li>
+</ol>
+<h3 id="logging-1">Logging</h3>
+<p>The engine provides detailed logging:</p>
+<pre><code>[INFO] - General information
+[WARN] - Warnings (non-critical issues)
+[ERROR] - Errors (critical issues)
+[DEBUG] - Detailed debugging information
+</code></pre>
+<h3 id="performance-monitoring">Performance Monitoring</h3>
+<p>Watch the console for performance metrics:</p>
+<ul>
+<li>Frame rate (should be stable 60 FPS)</li>
+<li>Asset loading times</li>
+<li>Memory usage</li>
+<li>File change detection speed</li>
+</ul>
+<h2 id="next-steps">Next Steps</h2>
+<ol>
+<li><strong>Explore the examples</strong> in <code>Examples/</code></li>
+<li><strong>Read the developer guide</strong> in <code>DEVELOPER_GUIDE.md</code></li>
+<li><strong>Check the TODO list</strong> in <code>TODO.md</code> for upcoming features</li>
+<li><strong>Create your first game</strong> using the engine!</li>
+</ol>
+<h2 id="support">Support</h2>
+<ul>
+<li><strong>Documentation</strong>: See <code>DEVELOPER_GUIDE.md</code> for technical details</li>
+<li><strong>Examples</strong>: Check <code>Examples/</code> directory</li>
+<li><strong>Issues</strong>: Report bugs and feature requests on GitHub</li>
+</ul>
+<hr>
+<p><strong>Happy game development!</strong></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,1908 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor UI Component Library</title>
+  <!-- openengine.dev injects the marketing header/CSS when mirroring: openengine-web/scripts/sync-engine-docs.mjs (npm run dev → /docs/editor/ui_component_library.html). -->
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #171817;
+      --panel: #232423;
+      --panel-2: #292a29;
+      --panel-3: #1e1f1e;
+      --line: #393a39;
+      --line-soft: #2e2f2e;
+      --text: #ededed;
+      --muted: #b9bbb9;
+      --dim: #858885;
+      --accent: #3a8fff;
+      --accent-2: #4caf50;
+      --warn: #d9a441;
+      --danger: #d96a6a;
+      --code: #101110;
+      --radius: 8px;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+      font-family: Inter, Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      background: var(--bg);
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        linear-gradient(180deg, rgba(58, 143, 255, 0.10), transparent 360px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        var(--bg);
+      background-size: auto, 32px 32px, auto;
+      line-height: 1.55;
+    }
+
+    a {
+      color: #91c4ff;
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-width: 0;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 20px 18px;
+      border-right: 1px solid var(--line);
+      background: rgba(29, 30, 29, 0.92);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 16px;
+    }
+
+    .brand strong {
+      font-size: 14px;
+      letter-spacing: 0.02em;
+    }
+
+    .brand span {
+      color: var(--dim);
+      font-size: 11px;
+    }
+
+    .nav-group {
+      margin: 20px 0;
+    }
+
+    .nav-group h2 {
+      margin: 0 0 8px;
+      color: var(--dim);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .nav-group a {
+      display: block;
+      padding: 6px 8px;
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .nav-group a:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.055);
+      text-decoration: none;
+    }
+
+    main {
+      min-width: 0;
+      padding: 28px 40px 56px;
+    }
+
+    .hero {
+      min-height: 240px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(260px, 0.95fr);
+      gap: 22px;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      color: #9fceff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 900px;
+      margin: 6px 0 10px;
+      font-size: clamp(26px, 3.6vw, 42px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .hero p {
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #2b2c2b;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .button.primary {
+      border-color: rgba(58, 143, 255, 0.74);
+      background: #2a5f9f;
+    }
+
+    .button:hover {
+      background: #343634;
+      text-decoration: none;
+    }
+
+    .button.primary:hover { background: #3372bd; }
+
+    .preview {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #1d1d1c;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .mock-toolbar,
+    .mock-bottom {
+      height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+      background: #222;
+      border-bottom: 1px solid #272727;
+    }
+
+    .mock-bottom {
+      justify-content: center;
+      border-top: 1px solid #272727;
+      border-bottom: 0;
+      background: #1d1d1d;
+    }
+
+    .icon-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      border: 1px solid transparent;
+      background: #ffffff18;
+    }
+
+    .icon-dot.active { background: #3a8fff; }
+    .mock-spacer { flex: 1; }
+
+    .mock-body {
+      display: grid;
+      grid-template-columns: 25% 1fr 22%;
+      min-height: 220px;
+    }
+
+    .mock-panel {
+      min-width: 0;
+      border-right: 1px solid #303030;
+      background: #272727;
+    }
+
+    .mock-panel:last-child { border-right: 0; }
+
+    .mock-tab {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      border-bottom: 1px solid #303030;
+      color: #e5e5e5;
+      font-size: 12px;
+      background: #1d1d1c;
+    }
+
+    .mock-content {
+      padding: 10px;
+    }
+
+    .tree-row,
+    .inspector-row {
+      display: flex;
+      align-items: center;
+      min-height: 27px;
+      gap: 8px;
+      border-radius: 4px;
+      color: #b8bab8;
+      font-size: 12px;
+    }
+
+    .tree-row.selected,
+    .inspector-field {
+      background: #333;
+    }
+
+    .inspector-row {
+      display: grid;
+      grid-template-columns: 84px minmax(0, 1fr);
+      margin-bottom: 6px;
+    }
+
+    .inspector-field {
+      height: 27px;
+      border: 1px solid #3a8fff66;
+    }
+
+    section {
+      scroll-margin-top: 24px;
+      margin: 34px 0;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 10px;
+    }
+
+    .section-head h2,
+    .section-head h3 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: 0;
+    }
+
+    .section-head p {
+      max-width: 560px;
+      margin: 0;
+      color: var(--dim);
+      font-size: 13px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .card,
+    .rule,
+    .token-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(35, 36, 35, 0.94);
+      box-shadow: 0 10px 32px rgba(0, 0, 0, 0.14);
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      min-height: 280px;
+      overflow: hidden;
+    }
+
+    .card.grid-span-full {
+      grid-column: 1 / -1;
+      min-height: 0;
+    }
+
+    .editor-icon-gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+      gap: 10px;
+      margin: 0;
+    }
+
+    .editor-icon-gallery-grid figure {
+      margin: 0;
+      padding: 10px 8px 12px;
+      border-radius: 6px;
+      background: rgba(30, 31, 30, 0.9);
+      border: 1px solid var(--line-soft);
+      text-align: center;
+    }
+
+    .editor-icon-gallery-grid img {
+      display: inline-block;
+      max-width: 56px;
+      max-height: 56px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      vertical-align: middle;
+      image-rendering: auto;
+    }
+
+    .editor-icon-gallery-grid figcaption {
+      margin: 8px 0 0;
+      font-size: 10px;
+      line-height: 1.3;
+      color: var(--dim);
+      word-break: break-word;
+    }
+
+    .card header {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--line-soft);
+      background: #262727;
+    }
+
+    .card h3 {
+      margin: 0 0 7px;
+      font-size: 18px;
+    }
+
+    .card .purpose {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .card-body {
+      display: grid;
+      gap: 12px;
+      padding: 14px 16px 16px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    code,
+    .pill {
+      border: 1px solid #3a3b3a;
+      border-radius: 5px;
+      background: #181918;
+      color: #dbe9ff;
+      font-family: "Roboto Mono", "Cascadia Code", Consolas, monospace;
+      font-size: 12px;
+    }
+
+    code {
+      padding: 1px 4px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 2px 7px;
+    }
+
+    pre {
+      margin: 0;
+      padding: 12px;
+      overflow: auto;
+      border: 1px solid #303130;
+      border-radius: 7px;
+      background: var(--code);
+      color: #dce8ff;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .mini-demo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 46px;
+      padding: 10px;
+      border: 1px solid #303130;
+      border-radius: 7px;
+      background: #1c1d1c;
+    }
+
+    .demo-button {
+      min-height: 32px;
+      padding: 6px 14px;
+      border: 1px solid #555;
+      border-radius: 4px;
+      background: #3a3a3a;
+      color: #e5e5e5;
+      font-size: 13px;
+    }
+
+    .demo-button.primary {
+      border-color: #3a8fff;
+      background: #2865a7;
+    }
+
+    .demo-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      background: #ffffff33;
+    }
+
+    .demo-icon.active {
+      background: #3a8fff;
+    }
+
+    .demo-toggle {
+      width: 38px;
+      height: 20px;
+      border-radius: 10px;
+      padding: 3px;
+      background: #3a8fff;
+    }
+
+    .demo-toggle::after {
+      content: "";
+      display: block;
+      width: 14px;
+      height: 14px;
+      margin-left: 18px;
+      border-radius: 50%;
+      background: white;
+    }
+
+    .demo-field {
+      flex: 1;
+      min-width: 0;
+      height: 27px;
+      border: 1px solid #3a8fff;
+      border-radius: 6px;
+      background: #202020;
+    }
+
+    .token-grid,
+    .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .token-card,
+    .rule {
+      padding: 16px;
+    }
+
+    .token-card h3,
+    .rule h3 {
+      margin: 0 0 10px;
+      font-size: 17px;
+    }
+
+    .swatches {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .swatch {
+      min-height: 54px;
+      border: 1px solid #ffffff1a;
+      border-radius: 6px;
+      padding: 8px;
+      display: flex;
+      align-items: end;
+      color: #fff;
+      font-size: 11px;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+    }
+
+    ul {
+      margin: 8px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+    }
+
+    li + li { margin-top: 5px; }
+
+    .callout {
+      margin: 20px 0;
+      padding: 16px;
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      background: rgba(58, 143, 255, 0.10);
+      color: #dbeaff;
+    }
+
+    .footer {
+      margin-top: 54px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--dim);
+      font-size: 13px;
+    }
+
+    @media (max-width: 1120px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .nav-group {
+        display: inline-block;
+        vertical-align: top;
+        width: min(240px, 100%);
+        margin-right: 16px;
+      }
+      main { padding: 24px 20px 48px; }
+      .hero { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 720px) {
+      main { padding: 22px 14px 40px; }
+      .hero { min-height: auto; }
+      .grid,
+      .token-grid,
+      .rules-grid {
+        grid-template-columns: 1fr;
+      }
+      .mock-body { grid-template-columns: 1fr; }
+      .mock-panel { min-height: 160px; border-right: 0; border-bottom: 1px solid #303030; }
+      .section-head {
+        display: block;
+      }
+      .section-head p { margin-top: 8px; }
+    }
+
+
+    /* OPENENGINE_COMPONENT_LIBRARY_OVERRIDES */
+    /* Website-owned component previews. Kept outside the engine mirror so docs sync cannot erase them. */
+    .sceneview-demo {
+      position: relative;
+      min-height: 164px;
+      overflow: hidden;
+      border: 1px solid #303130;
+      border-radius: 7px;
+      background:
+        radial-gradient(circle at 70% 45%, rgba(58, 143, 255, 0.12), transparent 34%),
+        linear-gradient(145deg, #191b20, #111317);
+    }
+
+    .sceneview-demo-toolbar {
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 7px;
+      border-bottom: 1px solid #303238;
+      background: #202225;
+    }
+
+    .sceneview-demo-bookmarks {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      padding-right: 5px;
+      border-right: 1px solid #3a3c40;
+    }
+
+    .sceneview-demo-bookmark {
+      width: 22px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #3c3e43;
+      border-radius: 3px;
+      color: #aeb1b7;
+      font-family: "Roboto Mono", "Cascadia Code", Consolas, monospace;
+      font-size: 9px;
+      background: #292b2f;
+    }
+
+    .sceneview-demo-tool,
+    .sceneview-demo-control {
+      width: 25px;
+      height: 25px;
+      flex: 0 0 25px;
+      display: grid;
+      place-items: center;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      background: transparent;
+      opacity: 0.72;
+    }
+
+    .sceneview-demo-tool.active {
+      border-color: rgba(58, 143, 255, 0.7);
+      background: rgba(58, 143, 255, 0.28);
+      opacity: 1;
+    }
+
+    .sceneview-demo-tool img,
+    .sceneview-demo-control img {
+      width: 16px;
+      height: 16px;
+      object-fit: contain;
+    }
+
+    .sceneview-demo-right {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .sceneview-demo-stage {
+      position: relative;
+      min-height: 127px;
+      background:
+        linear-gradient(rgba(126, 146, 175, 0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(126, 146, 175, 0.055) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .sceneview-demo-floating-tools {
+      position: absolute;
+      top: 16px;
+      left: 12px;
+      display: grid;
+      gap: 2px;
+      padding: 4px;
+      border: 1px solid #3b3e44;
+      border-radius: 5px;
+      background: rgba(31, 33, 37, 0.92);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.34);
+    }
+
+    .sceneview-demo-gizmo {
+      position: absolute;
+      top: 13px;
+      right: 14px;
+      width: 58px;
+      height: 58px;
+      border: 1px solid rgba(150, 157, 169, 0.5);
+      border-radius: 50%;
+      background:
+        linear-gradient(90deg, transparent 48%, rgba(255, 84, 84, 0.9) 49%, rgba(255, 84, 84, 0.9) 51%, transparent 52%),
+        linear-gradient(transparent 48%, rgba(90, 187, 255, 0.9) 49%, rgba(90, 187, 255, 0.9) 51%, transparent 52%),
+        rgba(18, 20, 24, 0.72);
+      box-shadow: 0 0 20px rgba(58, 143, 255, 0.12);
+    }
+
+    .sceneview-demo-measure {
+      position: absolute;
+      left: 78px;
+      bottom: 22px;
+      width: 42%;
+      height: 1px;
+      background: #f1b84b;
+      transform: rotate(-7deg);
+      transform-origin: left center;
+    }
+
+    .sceneview-demo-measure::before,
+    .sceneview-demo-measure::after {
+      content: "";
+      position: absolute;
+      top: -3px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #f1b84b;
+    }
+
+    .sceneview-demo-measure::before { left: -3px; }
+    .sceneview-demo-measure::after { right: -3px; }
+
+    .sceneview-demo-measure span {
+      position: absolute;
+      left: 50%;
+      bottom: 7px;
+      padding: 2px 6px;
+      border-radius: 9px;
+      color: #f4e2b9;
+      background: #2a251b;
+      font-family: "Roboto Mono", "Cascadia Code", Consolas, monospace;
+      font-size: 9px;
+      white-space: nowrap;
+      transform: translateX(-50%) rotate(7deg);
+    }
+
+    .sceneview-demo-status {
+      position: absolute;
+      right: 12px;
+      bottom: 9px;
+      display: flex;
+      gap: 5px;
+      color: #8f949d;
+      font-family: "Roboto Mono", "Cascadia Code", Consolas, monospace;
+      font-size: 9px;
+      letter-spacing: 0.04em;
+    }
+
+    .animation-demo {
+      display: grid;
+      grid-template-columns: minmax(138px, 0.22fr) minmax(0, 1fr) minmax(170px, 0.27fr);
+      min-height: 250px;
+      overflow: hidden;
+      border: 1px solid #303238;
+      border-radius: 7px;
+      background: #15171b;
+      color: #c9cbd0;
+    }
+
+    .animation-demo-sidebar,
+    .animation-demo-inspector {
+      min-width: 0;
+      background: #202225;
+    }
+
+    .animation-demo-sidebar { border-right: 1px solid #34363b; }
+    .animation-demo-inspector { border-left: 1px solid #34363b; }
+
+    .animation-demo-panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 34px;
+      padding: 0 10px;
+      border-bottom: 1px solid #34363b;
+      color: #e4e6ea;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .animation-demo-search {
+      margin: 8px;
+      padding: 6px 8px;
+      border: 1px solid #3b3e44;
+      border-radius: 4px;
+      background: #191b1f;
+      color: #777c85;
+      font-size: 10px;
+    }
+
+    .animation-demo-track {
+      display: grid;
+      grid-template-columns: 8px 8px minmax(0, 1fr);
+      align-items: center;
+      gap: 6px;
+      min-height: 27px;
+      padding: 0 9px;
+      border-bottom: 1px solid rgba(75, 78, 84, 0.25);
+      color: #aeb2ba;
+      font-size: 10px;
+    }
+
+    .animation-demo-track.active {
+      background: rgba(58, 143, 255, 0.14);
+      color: #f0f2f5;
+    }
+
+    .animation-demo-track .caret {
+      color: #737983;
+      font-size: 8px;
+    }
+
+    .animation-demo-track .channel {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--channel, #3a8fff);
+      box-shadow: 0 0 8px color-mix(in srgb, var(--channel, #3a8fff) 52%, transparent);
+    }
+
+    .animation-demo-main {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-width: 0;
+      background: #15171b;
+    }
+
+    .animation-demo-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 38px;
+      padding: 5px 7px;
+      border-bottom: 1px solid #34363b;
+      background: #202225;
+    }
+
+    .animation-demo-toolbar .view-button,
+    .animation-demo-toolbar .tool-button {
+      display: grid;
+      place-items: center;
+      height: 25px;
+      border: 1px solid #3a3d43;
+      border-radius: 4px;
+      background: #292b30;
+      color: #aeb2ba;
+      font-size: 9px;
+      white-space: nowrap;
+    }
+
+    .animation-demo-toolbar .view-button { padding: 0 8px; }
+
+    .animation-demo-toolbar .view-button.active {
+      border-color: rgba(58, 143, 255, 0.75);
+      background: rgba(58, 143, 255, 0.23);
+      color: #eaf3ff;
+    }
+
+    .animation-demo-toolbar .tool-button {
+      width: 25px;
+      font-family: "Roboto Mono", "Cascadia Code", Consolas, monospace;
+    }
+
+    .animation-demo-toolbar .tool-button img {
+      width: 15px;
+      height: 15px;
+      object-fit: contain;
+    }
+
+    .animation-demo-toolbar .divider {
+      width: 1px;
+      height: 19px;
+      margin: 0 2px;
+      background: #3c3e43;
+    }
+
+    .animation-demo-graph {
+      position: relative;
+      min-height: 176px;
+      overflow: hidden;
+      background:
+        linear-gradient(rgba(123, 131, 145, 0.085) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(123, 131, 145, 0.085) 1px, transparent 1px),
+        linear-gradient(rgba(123, 131, 145, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(123, 131, 145, 0.035) 1px, transparent 1px),
+        #14161a;
+      background-size: 56px 44px, 56px 44px, 14px 11px, 14px 11px;
+    }
+
+    .animation-demo-graph svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .animation-demo-playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 54%;
+      width: 1px;
+      background: #ef5a64;
+      box-shadow: 0 0 9px rgba(239, 90, 100, 0.38);
+    }
+
+    .animation-demo-playhead::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -4px;
+      width: 9px;
+      height: 7px;
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+      background: #ef5a64;
+    }
+
+    .animation-demo-ruler {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      min-height: 24px;
+      align-items: center;
+      padding: 0 9px;
+      border-top: 1px solid #34363b;
+      background: #1d1f23;
+      color: #7e838d;
+      font-family: "Roboto Mono", "Cascadia Code", Consolas, monospace;
+      font-size: 8px;
+    }
+
+    .animation-demo-inspector-body {
+      display: grid;
+      gap: 7px;
+      padding: 9px;
+    }
+
+    .animation-demo-field {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 58px;
+      align-items: center;
+      gap: 6px;
+      color: #aeb2ba;
+      font-size: 9px;
+    }
+
+    .animation-demo-field span:last-child {
+      min-width: 0;
+      padding: 5px 6px;
+      overflow: hidden;
+      border: 1px solid #3a3d42;
+      border-radius: 3px;
+      background: #181a1e;
+      color: #d4d7dc;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .animation-demo-value-preview {
+      position: relative;
+      height: 50px;
+      overflow: hidden;
+      border: 1px solid #3a3d42;
+      border-radius: 4px;
+      background:
+        linear-gradient(rgba(123, 131, 145, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(123, 131, 145, 0.07) 1px, transparent 1px),
+        #181a1e;
+      background-size: 16px 16px;
+    }
+
+    .animation-demo-value-preview svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .animation-demo-range {
+      height: 4px;
+      margin-top: 3px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #3a8fff 0 18%, #7caeff 18% 76%, #3a8fff 76%);
+      box-shadow: 0 0 8px rgba(58, 143, 255, 0.22);
+    }
+
+    @media (max-width: 760px) {
+      .animation-demo {
+        grid-template-columns: minmax(96px, 0.26fr) minmax(0, 1fr);
+      }
+
+      .animation-demo-inspector {
+        display: none;
+      }
+
+      .animation-demo-toolbar .tool-button:nth-of-type(n + 7) {
+        display: none;
+      }
+    }
+  </style>
+
+  <style id="openengine-marketing-nav">
+/* Injected into synced GameEngine docs; matches openengine.dev home .nav (index.astro). */
+html:has(body.oe-with-marketing-nav) {
+	overflow-x: clip;
+}
+
+/*
+ * Stacked layout: full-width sticky bar, then [ sidebar | main ]. The sidebar must not
+ * slide over the bar when scrolling, so sticky top matches the bar’s block size (approx).
+ */
+body.oe-with-marketing-nav {
+	--oe-nav-fg: #f5f3ff;
+	--oe-nav-muted: #a5a3b8;
+	--oe-nav-accent: #6ee7ff;
+	/* Match sticky bar height: padding-block + uppercase link row + bottom border (~1px). */
+	--oe-sticky-marketing-offset: 56px;
+
+	display: flex;
+	flex-direction: column;
+	flex-wrap: nowrap;
+	align-items: stretch;
+	gap: 0;
+	row-gap: 0;
+	column-gap: 0;
+	min-height: 100vh;
+	width: 100%;
+	max-width: 100%;
+	overflow-x: clip;
+	margin: 0;
+	padding: 0;
+}
+
+/* Flex column + min-width:0 prevent the doc grid from overflowing horizontally. */
+body.oe-with-marketing-nav > .shell {
+	flex: 1 1 auto;
+	min-width: 0;
+	width: 100%;
+	min-height: 0;
+	min-height: calc(100dvh - var(--oe-sticky-marketing-offset));
+}
+
+body.oe-with-marketing-nav .shell > .sidebar {
+	top: var(--oe-sticky-marketing-offset);
+	height: calc(100vh - var(--oe-sticky-marketing-offset));
+	max-height: calc(100vh - var(--oe-sticky-marketing-offset));
+	z-index: 1;
+	/* Match marketing nav horizontal inset so the sidebar title lines up with “Open Engine”. */
+	padding-left: max(clamp(14px, 4.5vw, 80px), env(safe-area-inset-left, 0px));
+	padding-right: 18px;
+}
+
+@media (max-width: 720px) {
+	body.oe-with-marketing-nav {
+		/* Wrapped links + 44px tap targets stack the bar taller; keep sticky pane below it. */
+		--oe-sticky-marketing-offset: 112px;
+	}
+
+	body.oe-with-marketing-nav .shell > .sidebar {
+		top: auto;
+		height: auto;
+		max-height: none;
+	}
+}
+
+.oe-marketing-nav {
+	position: sticky;
+	top: 0;
+	z-index: 10000;
+	flex: 0 0 auto;
+	flex-shrink: 0;
+	align-self: stretch;
+	width: 100%;
+	margin: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: 16px;
+	box-sizing: border-box;
+	margin-inline: 0;
+	padding-inline: max(clamp(14px, 4.5vw, 80px), env(safe-area-inset-left, 0px))
+		max(clamp(14px, 4.5vw, 80px), env(safe-area-inset-right, 0px));
+	padding-block-start: max(clamp(14px, 3vw, 24px), env(safe-area-inset-top, 0px));
+	padding-block-end: 12px;
+	background: rgba(0, 0, 0, 0.88);
+	backdrop-filter: blur(14px);
+	-webkit-backdrop-filter: blur(14px);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+	font-family:
+		Inter,
+		ui-sans-serif,
+		system-ui,
+		-apple-system,
+		'Segoe UI',
+		Roboto,
+		'Helvetica Neue',
+		Arial,
+		sans-serif;
+}
+
+.oe-marketing-nav-inner {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	align-items: center;
+	gap: 12px 20px;
+	min-width: 0;
+	flex: none;
+	max-width: 100%;
+	overflow-x: visible;
+}
+
+.oe-marketing-nav a {
+	color: var(--oe-nav-muted);
+	text-decoration: none;
+	font-size: 13px;
+	font-weight: 400;
+	line-height: 1.55;
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	transition: color 0.15s ease;
+}
+
+.oe-marketing-nav a:hover {
+	color: var(--oe-nav-fg);
+}
+
+.oe-marketing-nav a:focus-visible {
+	outline: 2px solid var(--oe-nav-accent);
+	outline-offset: 3px;
+	border-radius: 4px;
+}
+
+.oe-marketing-nav a[aria-current='page'] {
+	color: var(--oe-nav-fg);
+}
+
+@media (max-width: 720px) {
+	.oe-marketing-nav a.nav-brand {
+		display: none;
+	}
+
+	.oe-marketing-nav {
+		gap: 10px;
+	}
+
+	.oe-marketing-nav-inner {
+		gap: 8px 10px;
+		justify-content: center;
+	}
+
+	.oe-marketing-nav a {
+		font-size: 12px;
+		line-height: 1.52;
+		padding: 10px 12px;
+		min-height: 44px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 8px;
+	}
+}
+
+@media (max-width: 380px) {
+	.oe-marketing-nav a {
+		font-size: 12px;
+		padding-inline: 8px;
+		min-height: 40px;
+	}
+}
+
+  </style>
+</head>
+<body class="oe-with-marketing-nav"><header class="oe-marketing-nav"><nav class="oe-marketing-nav-inner" aria-label="Open Engine site"><a class="nav-brand" href="/">Open Engine</a><a href="/features">Features</a><a href="/roadmap">Roadmap</a><a href="/github">GitHub</a><a href="https://discord.gg/jyYPNTJ4P2" target="_blank" rel="noopener">Discord</a></nav></header><div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <strong>GameEngine Editor UI</strong>
+        <span>Component library and authoring guidelines</span>
+      </div>
+
+      <nav aria-label="Page sections">
+        <div class="nav-group">
+          <h2>Overview</h2>
+          <a href="#overview">Overview</a>
+          <a href="#foundations">Foundations</a>
+          <a href="#tokens">Tokens</a>
+          <a href="#status-colors">Status Colors</a>
+          <a href="#rules">Guidelines</a>
+        </div>
+        <div class="nav-group">
+          <h2>Components</h2>
+          <a href="#buttons">Buttons</a>
+          <a href="#icon-buttons">Icon Buttons</a>
+          <a href="#editor-icons">Editor Icon Assets</a>
+          <a href="#editor-icon-gallery">Icon file preview</a>
+          <a href="#labels">Labels</a>
+          <a href="#boolean">Boolean Controls</a>
+          <a href="#dropdowns">Dropdowns</a>
+          <a href="#fields">Text And Numeric Fields</a>
+          <a href="#sliders">Sliders</a>
+          <a href="#disclosure">Foldout And Accordion</a>
+          <a href="#search">Search Dialog</a>
+          <a href="#asset-field">Asset Field</a>
+          <a href="#collections">Tree, Grid, List, Scroll</a>
+          <a href="#layout-primitives">Layout Primitives</a>
+          <a href="#diagnostics">Charts And Logs</a>
+          <a href="#color-picker">Color Picker</a>
+          <a href="#scene-widgets">Scene View Widgets</a>
+          <a href="#timeline-controls">Animation Timeline</a>
+          <a href="#modals">Modals</a>
+          <a href="#docking">Docking And Panels</a>
+          <a href="#inspector">Inspector Sections</a>
+          <a href="#toolbars">Toolbars</a>
+        </div>
+        <div class="nav-group">
+          <h2>Sources</h2>
+          <a href="../index.html">Documentation Home</a>
+          <a href="ui_component_library.md">Markdown Catalog</a>
+          <a href="ui_guidelines.md">Markdown Guidelines</a>
+          <a href="/">Docs Index</a>
+        </div>
+      </nav>
+    </aside>
+
+    <main>
+      <section class="hero" id="overview">
+        <div>
+          <div class="eyebrow">Documentation-first component system</div>
+          <h1>Editor UI Component Library</h1>
+          <p>
+            A visual reference for the current native editor UI: registered controls,
+            CSS classes, panel patterns, design tokens, behavior rules, and authoring
+            conventions. This page documents what already exists so new UI can feel
+            like it belongs in the editor.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#components">Browse Components</a>
+            <a class="button" href="#rules">Read Guidelines</a>
+            <a class="button" href="ui_component_library.md">Open Markdown</a>
+          </div>
+        </div>
+
+        <div class="preview" aria-label="Editor UI preview">
+          <div class="mock-toolbar">
+            <span class="icon-dot"></span>
+            <span class="icon-dot"></span>
+            <span class="mock-spacer"></span>
+            <span class="icon-dot active"></span>
+            <span class="icon-dot"></span>
+            <span class="icon-dot"></span>
+            <span class="mock-spacer"></span>
+            <span class="icon-dot"></span>
+            <span class="icon-dot"></span>
+            <span class="icon-dot"></span>
+          </div>
+          <div class="mock-body">
+            <div class="mock-panel">
+              <div class="mock-tab">Hierarchy</div>
+              <div class="mock-content">
+                <div class="tree-row selected">Scene Root</div>
+                <div class="tree-row">Camera</div>
+                <div class="tree-row">Directional Light</div>
+                <div class="tree-row">Player</div>
+              </div>
+            </div>
+            <div class="mock-panel">
+              <div class="mock-tab">Scene View</div>
+              <div class="mock-content">
+                <div style="height:140px;border:1px solid #343434;border-radius:6px;background:linear-gradient(145deg,#202221,#101110);"></div>
+              </div>
+            </div>
+            <div class="mock-panel">
+              <div class="mock-tab">Inspector</div>
+              <div class="mock-content">
+                <div class="inspector-row"><span>Name</span><span class="inspector-field"></span></div>
+                <div class="inspector-row"><span>Position</span><span class="inspector-field"></span></div>
+                <div class="inspector-row"><span>Rotation</span><span class="inspector-field"></span></div>
+                <div class="inspector-row"><span>Scale</span><span class="inspector-field"></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="mock-bottom">
+            <span class="demo-button">Default</span>
+            <span class="demo-button primary">Layout</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="foundations">
+        <div class="section-head">
+          <h2>Foundations</h2>
+          <p>The editor UI is native C++ controls plus UXML structure and CSS-style theme assets.</p>
+        </div>
+        <div class="rules-grid">
+          <article class="rule">
+            <h3>Runtime Model</h3>
+            <ul>
+              <li><code>UIElement</code> is the base node for structure, classes, state, events, and styles.</li>
+              <li>Registered controls map UXML tags to native C++ types in <code>ControlRegistration.cpp</code>.</li>
+              <li>Use C++ for dynamic state, event wiring, virtualization, and editor services.</li>
+            </ul>
+          </article>
+          <article class="rule">
+            <h3>Asset Model</h3>
+            <ul>
+              <li>Global editor styling enters through <code>Apps/Editor/Assets/UI/theme.css</code>.</li>
+              <li>Reusable control CSS belongs in <code>Apps/Editor/Assets/UI/controls</code>.</li>
+              <li>Panel-specific CSS belongs in <code>Apps/Editor/Assets/UI/panels</code>.</li>
+            </ul>
+          </article>
+        </div>
+        <div class="callout">
+          Prefer UXML for stable layout structure and C++ for behavior. When a control owns reusable child structure,
+          attach its local CSS with <code>RequestSubtreeStyleAssetPath("UI/controls/&lt;Control&gt;.css")</code>.
+        </div>
+      </section>
+
+      <section id="tokens">
+        <div class="section-head">
+          <h2>Theme Tokens</h2>
+          <p>Shared values come from <code>theme/tokens.css</code>. Reuse them before adding new colors or dimensions.</p>
+        </div>
+        <div class="token-grid">
+          <article class="token-card">
+            <h3>Core Colors</h3>
+            <div class="meta">
+              <span class="pill">--ui_color_bg_panel</span>
+              <span class="pill">--ui_color_text</span>
+              <span class="pill">--ui_color_border</span>
+              <span class="pill">--ui_color_accent</span>
+            </div>
+            <div class="swatches">
+              <div class="swatch" style="background:#272727">panel</div>
+              <div class="swatch" style="background:#1d1d1c">tabbar</div>
+              <div class="swatch" style="background:#3a8fff">accent</div>
+              <div class="swatch" style="background:#4caf50">green</div>
+            </div>
+          </article>
+          <article class="token-card" id="status-colors">
+            <h3>Orange And Warning Colors</h3>
+            <div class="meta">
+              <span class="pill">#dcdcaa warnings</span>
+              <span class="pill">#f08040 GPU</span>
+              <span class="pill">#FFAA00 VCS warning</span>
+              <span class="pill">#f0c850 tags</span>
+            </div>
+            <div class="swatches">
+              <div class="swatch" style="background:#dcdcaa;color:#242424;text-shadow:none">warning text</div>
+              <div class="swatch" style="background:#f08040">GPU orange</div>
+              <div class="swatch" style="background:#ffaa00;color:#242424;text-shadow:none">VCS warn</div>
+              <div class="swatch" style="background:#f0c850;color:#242424;text-shadow:none">tag yellow</div>
+            </div>
+            <ul>
+              <li>Use amber/yellow for warning, caution, and validation-in-progress states.</li>
+              <li>Use orange for GPU/profiler distinction or existing category chips.</li>
+              <li>Keep blue as the default focus, selection, and primary accent.</li>
+            </ul>
+          </article>
+          <article class="token-card">
+            <h3>Typography And Spacing</h3>
+            <div class="meta">
+              <span class="pill">Roboto</span>
+              <span class="pill">Roboto Mono</span>
+              <span class="pill">12 / 13 / 14 / 16 px</span>
+              <span class="pill">4 / 6 / 8 / 12 / 16 px</span>
+            </div>
+            <ul>
+              <li>Use base sizes for dense panels and headers only where hierarchy matters.</li>
+              <li>Do not scale editor text with viewport width.</li>
+            </ul>
+          </article>
+          <article class="token-card">
+            <h3>Radii And Icon Tint</h3>
+            <div class="meta">
+              <span class="pill">--ui_radius_sm: 4px</span>
+              <span class="pill">--ui_radius_md: 6px</span>
+              <span class="pill">--ui_icon_tint_default</span>
+              <span class="pill">--ui_icon_tint_hover</span>
+            </div>
+            <ul>
+              <li>Keep editor surfaces restrained and compact.</li>
+              <li>Use image tinting instead of whole-control opacity for icon states.</li>
+            </ul>
+          </article>
+          <article class="token-card">
+            <h3>Tree Sizing</h3>
+            <div class="meta">
+              <span class="pill">--ui_tree_icon_size</span>
+              <span class="pill">--ui_tree_foldout_size</span>
+              <span class="pill">--ui_tree_icon_padding</span>
+            </div>
+            <ul>
+              <li>Use tree tokens for hierarchy, assets, and folder trees.</li>
+              <li>Avoid hard-coded tree indentation unless the control owns it.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="components">
+        <div class="section-head">
+          <h2>Components</h2>
+          <p>Use these existing pieces before adding new UI primitives or one-off CSS.</p>
+        </div>
+
+        <div class="grid">
+          <article class="card" id="buttons">
+            <header>
+              <h3>Buttons</h3>
+              <p class="purpose">Command actions, confirmations, and dense panel actions.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span class="demo-button primary">Apply</span><span class="demo-button">Cancel</span></div>
+              <div class="meta"><span class="pill">primary</span><span class="pill">secondary</span><span class="pill">cancel-button</span><span class="pill">small</span></div>
+              <pre>&lt;Button id="ApplySettings" class="primary" text="Apply" /&gt;</pre>
+              <p class="purpose">Default height is at least 32 px. Keep labels short and state changes stable.</p>
+            </div>
+          </article>
+
+          <article class="card" id="icon-buttons">
+            <header>
+              <h3>Icon Buttons</h3>
+              <p class="purpose">Toolbar, chrome, and repeated compact actions.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span class="demo-icon"></span><span class="demo-icon" style="background:#ffffffcc"></span><span class="demo-icon" style="background:#3a8fff"></span></div>
+              <div class="meta"><span class="pill">icon-button</span><span class="pill">save-icon</span><span class="pill">settings-icon</span></div>
+              <pre>&lt;Button class="small secondary icon-button settings-icon" /&gt;</pre>
+              <p class="purpose">Standard toolbar hit area is 24 x 24 px; playback uses 32 x 32 px.</p>
+            </div>
+          </article>
+
+          <article class="card" id="editor-icons">
+            <header>
+              <h3>Editor Icon Assets</h3>
+              <p class="purpose">Toolbar, hierarchy, inspector, and panel sprites as PNG/SVG files under Assets/Icons, referenced from theme and panel CSS.</p>
+            </header>
+            <div class="card-body">
+              <div class="meta"><span class="pill">Apps/Editor/Assets/Icons</span><span class="pill">editor:Icons/*.png</span><span class="pill">url("Icons/…") panels</span></div>
+              <pre>background-image: url("editor:Icons/save.png");</pre>
+              <ul class="purpose" style="margin:12px 0 0 18px;line-height:1.55;color:var(--muted)">
+                <li><strong>Global playback / folds / dock layouts</strong> — <code>theme/core.css</code></li>
+                <li><strong>Trees, locks, project rows, create-entity thumbnails</strong> — <code>theme/views.css</code></li>
+                <li><strong>Dropdown carets, reorder handles, outlines</strong> — <code>theme/widgets.css</code></li>
+                <li><strong>Inspector add menus, reorder, section locks</strong> — <code>theme/inspector.css</code></li>
+                <li><strong>Animation / Scene View / Settings / Build …</strong> — <code>panels/*.css</code></li>
+              </ul>
+              <p class="purpose">Sparse SVG companions (e.g. <code>Lock.svg</code>, <code>ArrowUp.svg</code>) ship beside PNGs; tint with <code>background-image-tint</code>. Reuse glyphs before introducing parallel assets.</p>
+            </div>
+          </article>
+
+          <article class="card grid-span-full" id="editor-icon-gallery">
+            <header>
+              <h3>Icon file preview</h3>
+              <p class="purpose">Sprites mirrored under <code>public/icons/editor/</code> on the marketing site (<code>Lunarsong/openengine-web</code>). Requires <code>npm run sync:editor-icons -- --png</code> then sync this HTML.</p>
+            </header>
+            <div class="card-body">
+              <div class="editor-icon-gallery-grid"><figure><a href="/icons/editor/2d.png" target="_blank" rel="noopener"><img src="/icons/editor/2d.png" alt="2d.png" loading="lazy" decoding="async" /></a><figcaption>2d.png</figcaption></figure><figure><a href="/icons/editor/3d.png" target="_blank" rel="noopener"><img src="/icons/editor/3d.png" alt="3d.png" loading="lazy" decoding="async" /></a><figcaption>3d.png</figcaption></figure><figure><a href="/icons/editor/add_key_marker.png" target="_blank" rel="noopener"><img src="/icons/editor/add_key_marker.png" alt="add_key_marker.png" loading="lazy" decoding="async" /></a><figcaption>add_key_marker.png</figcaption></figure><figure><a href="/icons/editor/add_noise.png" target="_blank" rel="noopener"><img src="/icons/editor/add_noise.png" alt="add_noise.png" loading="lazy" decoding="async" /></a><figcaption>add_noise.png</figcaption></figure><figure><a href="/icons/editor/alarm.png" target="_blank" rel="noopener"><img src="/icons/editor/alarm.png" alt="alarm.png" loading="lazy" decoding="async" /></a><figcaption>alarm.png</figcaption></figure><figure><a href="/icons/editor/alert-circle.png" target="_blank" rel="noopener"><img src="/icons/editor/alert-circle.png" alt="alert-circle.png" loading="lazy" decoding="async" /></a><figcaption>alert-circle.png</figcaption></figure><figure><a href="/icons/editor/AmbientLight.png" target="_blank" rel="noopener"><img src="/icons/editor/AmbientLight.png" alt="AmbientLight.png" loading="lazy" decoding="async" /></a><figcaption>AmbientLight.png</figcaption></figure><figure><a href="/icons/editor/arealight.png" target="_blank" rel="noopener"><img src="/icons/editor/arealight.png" alt="arealight.png" loading="lazy" decoding="async" /></a><figcaption>arealight.png</figcaption></figure><figure><a href="/icons/editor/arrow-down.png" target="_blank" rel="noopener"><img src="/icons/editor/arrow-down.png" alt="arrow-down.png" loading="lazy" decoding="async" /></a><figcaption>arrow-down.png</figcaption></figure><figure><a href="/icons/editor/arrow-left.png" target="_blank" rel="noopener"><img src="/icons/editor/arrow-left.png" alt="arrow-left.png" loading="lazy" decoding="async" /></a><figcaption>arrow-left.png</figcaption></figure><figure><a href="/icons/editor/arrow-right.png" target="_blank" rel="noopener"><img src="/icons/editor/arrow-right.png" alt="arrow-right.png" loading="lazy" decoding="async" /></a><figcaption>arrow-right.png</figcaption></figure><figure><a href="/icons/editor/ArrowDown.png" target="_blank" rel="noopener"><img src="/icons/editor/ArrowDown.png" alt="ArrowDown.png" loading="lazy" decoding="async" /></a><figcaption>ArrowDown.png</figcaption></figure><figure><a href="/icons/editor/ArrowDown.svg" target="_blank" rel="noopener"><img src="/icons/editor/ArrowDown.svg" alt="ArrowDown.svg" loading="lazy" decoding="async" /></a><figcaption>ArrowDown.svg</figcaption></figure><figure><a href="/icons/editor/arrowmouse.png" target="_blank" rel="noopener"><img src="/icons/editor/arrowmouse.png" alt="arrowmouse.png" loading="lazy" decoding="async" /></a><figcaption>arrowmouse.png</figcaption></figure><figure><a href="/icons/editor/ArrowUp.png" target="_blank" rel="noopener"><img src="/icons/editor/ArrowUp.png" alt="ArrowUp.png" loading="lazy" decoding="async" /></a><figcaption>ArrowUp.png</figcaption></figure><figure><a href="/icons/editor/ArrowUp.svg" target="_blank" rel="noopener"><img src="/icons/editor/ArrowUp.svg" alt="ArrowUp.svg" loading="lazy" decoding="async" /></a><figcaption>ArrowUp.svg</figcaption></figure><figure><a href="/icons/editor/bone_icon.png" target="_blank" rel="noopener"><img src="/icons/editor/bone_icon.png" alt="bone_icon.png" loading="lazy" decoding="async" /></a><figcaption>bone_icon.png</figcaption></figure><figure><a href="/icons/editor/book.png" target="_blank" rel="noopener"><img src="/icons/editor/book.png" alt="book.png" loading="lazy" decoding="async" /></a><figcaption>book.png</figcaption></figure><figure><a href="/icons/editor/box.png" target="_blank" rel="noopener"><img src="/icons/editor/box.png" alt="box.png" loading="lazy" decoding="async" /></a><figcaption>box.png</figcaption></figure><figure><a href="/icons/editor/break_tangent.png" target="_blank" rel="noopener"><img src="/icons/editor/break_tangent.png" alt="break_tangent.png" loading="lazy" decoding="async" /></a><figcaption>break_tangent.png</figcaption></figure><figure><a href="/icons/editor/brush.png" target="_blank" rel="noopener"><img src="/icons/editor/brush.png" alt="brush.png" loading="lazy" decoding="async" /></a><figcaption>brush.png</figcaption></figure><figure><a href="/icons/editor/cambookmark.png" target="_blank" rel="noopener"><img src="/icons/editor/cambookmark.png" alt="cambookmark.png" loading="lazy" decoding="async" /></a><figcaption>cambookmark.png</figcaption></figure><figure><a href="/icons/editor/camera.png" target="_blank" rel="noopener"><img src="/icons/editor/camera.png" alt="camera.png" loading="lazy" decoding="async" /></a><figcaption>camera.png</figcaption></figure><figure><a href="/icons/editor/Capsule.png" target="_blank" rel="noopener"><img src="/icons/editor/Capsule.png" alt="Capsule.png" loading="lazy" decoding="async" /></a><figcaption>Capsule.png</figcaption></figure><figure><a href="/icons/editor/checkbox-square-checked.png" target="_blank" rel="noopener"><img src="/icons/editor/checkbox-square-checked.png" alt="checkbox-square-checked.png" loading="lazy" decoding="async" /></a><figcaption>checkbox-square-checked.png</figcaption></figure><figure><a href="/icons/editor/checkbox-square-unchecked.png" target="_blank" rel="noopener"><img src="/icons/editor/checkbox-square-unchecked.png" alt="checkbox-square-unchecked.png" loading="lazy" decoding="async" /></a><figcaption>checkbox-square-unchecked.png</figcaption></figure><figure><a href="/icons/editor/checked.png" target="_blank" rel="noopener"><img src="/icons/editor/checked.png" alt="checked.png" loading="lazy" decoding="async" /></a><figcaption>checked.png</figcaption></figure><figure><a href="/icons/editor/checkmark-circle_un.png" target="_blank" rel="noopener"><img src="/icons/editor/checkmark-circle_un.png" alt="checkmark-circle_un.png" loading="lazy" decoding="async" /></a><figcaption>checkmark-circle_un.png</figcaption></figure><figure><a href="/icons/editor/checkmark-circle.png" target="_blank" rel="noopener"><img src="/icons/editor/checkmark-circle.png" alt="checkmark-circle.png" loading="lazy" decoding="async" /></a><figcaption>checkmark-circle.png</figcaption></figure><figure><a href="/icons/editor/cloud.png" target="_blank" rel="noopener"><img src="/icons/editor/cloud.png" alt="cloud.png" loading="lazy" decoding="async" /></a><figcaption>cloud.png</figcaption></figure><figure><a href="/icons/editor/codeicon.png" target="_blank" rel="noopener"><img src="/icons/editor/codeicon.png" alt="codeicon.png" loading="lazy" decoding="async" /></a><figcaption>codeicon.png</figcaption></figure><figure><a href="/icons/editor/color-filter.png" target="_blank" rel="noopener"><img src="/icons/editor/color-filter.png" alt="color-filter.png" loading="lazy" decoding="async" /></a><figcaption>color-filter.png</figcaption></figure><figure><a href="/icons/editor/colorpicker.png" target="_blank" rel="noopener"><img src="/icons/editor/colorpicker.png" alt="colorpicker.png" loading="lazy" decoding="async" /></a><figcaption>colorpicker.png</figcaption></figure><figure><a href="/icons/editor/column-horizontal.png" target="_blank" rel="noopener"><img src="/icons/editor/column-horizontal.png" alt="column-horizontal.png" loading="lazy" decoding="async" /></a><figcaption>column-horizontal.png</figcaption></figure><figure><a href="/icons/editor/computer.png" target="_blank" rel="noopener"><img src="/icons/editor/computer.png" alt="computer.png" loading="lazy" decoding="async" /></a><figcaption>computer.png</figcaption></figure><figure><a href="/icons/editor/contract_outline.png" target="_blank" rel="noopener"><img src="/icons/editor/contract_outline.png" alt="contract_outline.png" loading="lazy" decoding="async" /></a><figcaption>contract_outline.png</figcaption></figure><figure><a href="/icons/editor/copy.png" target="_blank" rel="noopener"><img src="/icons/editor/copy.png" alt="copy.png" loading="lazy" decoding="async" /></a><figcaption>copy.png</figcaption></figure><figure><a href="/icons/editor/Cube.png" target="_blank" rel="noopener"><img src="/icons/editor/Cube.png" alt="Cube.png" loading="lazy" decoding="async" /></a><figcaption>Cube.png</figcaption></figure><figure><a href="/icons/editor/desktop.png" target="_blank" rel="noopener"><img src="/icons/editor/desktop.png" alt="desktop.png" loading="lazy" decoding="async" /></a><figcaption>desktop.png</figcaption></figure><figure><a href="/icons/editor/DirectionalLight.png" target="_blank" rel="noopener"><img src="/icons/editor/DirectionalLight.png" alt="DirectionalLight.png" loading="lazy" decoding="async" /></a><figcaption>DirectionalLight.png</figcaption></figure><figure><a href="/icons/editor/dot.png" target="_blank" rel="noopener"><img src="/icons/editor/dot.png" alt="dot.png" loading="lazy" decoding="async" /></a><figcaption>dot.png</figcaption></figure><figure><a href="/icons/editor/draw_curve.png" target="_blank" rel="noopener"><img src="/icons/editor/draw_curve.png" alt="draw_curve.png" loading="lazy" decoding="async" /></a><figcaption>draw_curve.png</figcaption></figure><figure><a href="/icons/editor/dropdownsmall.png" target="_blank" rel="noopener"><img src="/icons/editor/dropdownsmall.png" alt="dropdownsmall.png" loading="lazy" decoding="async" /></a><figcaption>dropdownsmall.png</figcaption></figure><figure><a href="/icons/editor/dropdownsmallup.png" target="_blank" rel="noopener"><img src="/icons/editor/dropdownsmallup.png" alt="dropdownsmallup.png" loading="lazy" decoding="async" /></a><figcaption>dropdownsmallup.png</figcaption></figure><figure><a href="/icons/editor/ease_ease.png" target="_blank" rel="noopener"><img src="/icons/editor/ease_ease.png" alt="ease_ease.png" loading="lazy" decoding="async" /></a><figcaption>ease_ease.png</figcaption></figure><figure><a href="/icons/editor/ease_out.png" target="_blank" rel="noopener"><img src="/icons/editor/ease_out.png" alt="ease_out.png" loading="lazy" decoding="async" /></a><figcaption>ease_out.png</figcaption></figure><figure><a href="/icons/editor/easy_in.png" target="_blank" rel="noopener"><img src="/icons/editor/easy_in.png" alt="easy_in.png" loading="lazy" decoding="async" /></a><figcaption>easy_in.png</figcaption></figure><figure><a href="/icons/editor/EmptyEntity.png" target="_blank" rel="noopener"><img src="/icons/editor/EmptyEntity.png" alt="EmptyEntity.png" loading="lazy" decoding="async" /></a><figcaption>EmptyEntity.png</figcaption></figure><figure><a href="/icons/editor/eraser.png" target="_blank" rel="noopener"><img src="/icons/editor/eraser.png" alt="eraser.png" loading="lazy" decoding="async" /></a><figcaption>eraser.png</figcaption></figure><figure><a href="/icons/editor/euler_filter.png" target="_blank" rel="noopener"><img src="/icons/editor/euler_filter.png" alt="euler_filter.png" loading="lazy" decoding="async" /></a><figcaption>euler_filter.png</figcaption></figure><figure><a href="/icons/editor/expand_outline.png" target="_blank" rel="noopener"><img src="/icons/editor/expand_outline.png" alt="expand_outline.png" loading="lazy" decoding="async" /></a><figcaption>expand_outline.png</figcaption></figure><figure><a href="/icons/editor/eye.png" target="_blank" rel="noopener"><img src="/icons/editor/eye.png" alt="eye.png" loading="lazy" decoding="async" /></a><figcaption>eye.png</figcaption></figure><figure><a href="/icons/editor/film.png" target="_blank" rel="noopener"><img src="/icons/editor/film.png" alt="film.png" loading="lazy" decoding="async" /></a><figcaption>film.png</figcaption></figure><figure><a href="/icons/editor/fit_heigth.png" target="_blank" rel="noopener"><img src="/icons/editor/fit_heigth.png" alt="fit_heigth.png" loading="lazy" decoding="async" /></a><figcaption>fit_heigth.png</figcaption></figure><figure><a href="/icons/editor/flame.png" target="_blank" rel="noopener"><img src="/icons/editor/flame.png" alt="flame.png" loading="lazy" decoding="async" /></a><figcaption>flame.png</figcaption></figure><figure><a href="/icons/editor/fold-down.png" target="_blank" rel="noopener"><img src="/icons/editor/fold-down.png" alt="fold-down.png" loading="lazy" decoding="async" /></a><figcaption>fold-down.png</figcaption></figure><figure><a href="/icons/editor/fold-left.png" target="_blank" rel="noopener"><img src="/icons/editor/fold-left.png" alt="fold-left.png" loading="lazy" decoding="async" /></a><figcaption>fold-left.png</figcaption></figure><figure><a href="/icons/editor/fold-right.png" target="_blank" rel="noopener"><img src="/icons/editor/fold-right.png" alt="fold-right.png" loading="lazy" decoding="async" /></a><figcaption>fold-right.png</figcaption></figure><figure><a href="/icons/editor/fold-up.png" target="_blank" rel="noopener"><img src="/icons/editor/fold-up.png" alt="fold-up.png" loading="lazy" decoding="async" /></a><figcaption>fold-up.png</figcaption></figure><figure><a href="/icons/editor/fold.png" target="_blank" rel="noopener"><img src="/icons/editor/fold.png" alt="fold.png" loading="lazy" decoding="async" /></a><figcaption>fold.png</figcaption></figure><figure><a href="/icons/editor/folder_open.png" target="_blank" rel="noopener"><img src="/icons/editor/folder_open.png" alt="folder_open.png" loading="lazy" decoding="async" /></a><figcaption>folder_open.png</figcaption></figure><figure><a href="/icons/editor/Folder@32px.png" target="_blank" rel="noopener"><img src="/icons/editor/Folder@32px.png" alt="Folder@32px.png" loading="lazy" decoding="async" /></a><figcaption>Folder@32px.png</figcaption></figure><figure><a href="/icons/editor/Folder@512px.png" target="_blank" rel="noopener"><img src="/icons/editor/Folder@512px.png" alt="Folder@512px.png" loading="lazy" decoding="async" /></a><figcaption>Folder@512px.png</figcaption></figure><figure><a href="/icons/editor/Folder@64px.png" target="_blank" rel="noopener"><img src="/icons/editor/Folder@64px.png" alt="Folder@64px.png" loading="lazy" decoding="async" /></a><figcaption>Folder@64px.png</figcaption></figure><figure><a href="/icons/editor/frame%20selected%20curves.png" target="_blank" rel="noopener"><img src="/icons/editor/frame%20selected%20curves.png" alt="frame selected curves.png" loading="lazy" decoding="async" /></a><figcaption>frame selected curves.png</figcaption></figure><figure><a href="/icons/editor/frame_all.png" target="_blank" rel="noopener"><img src="/icons/editor/frame_all.png" alt="frame_all.png" loading="lazy" decoding="async" /></a><figcaption>frame_all.png</figcaption></figure><figure><a href="/icons/editor/FramePlaybackRange.png" target="_blank" rel="noopener"><img src="/icons/editor/FramePlaybackRange.png" alt="FramePlaybackRange.png" loading="lazy" decoding="async" /></a><figcaption>FramePlaybackRange.png</figcaption></figure><figure><a href="/icons/editor/fullscreen.png" target="_blank" rel="noopener"><img src="/icons/editor/fullscreen.png" alt="fullscreen.png" loading="lazy" decoding="async" /></a><figcaption>fullscreen.png</figcaption></figure><figure><a href="/icons/editor/game-controller.png" target="_blank" rel="noopener"><img src="/icons/editor/game-controller.png" alt="game-controller.png" loading="lazy" decoding="async" /></a><figcaption>game-controller.png</figcaption></figure><figure><a href="/icons/editor/Giszmo_scale.png" target="_blank" rel="noopener"><img src="/icons/editor/Giszmo_scale.png" alt="Giszmo_scale.png" loading="lazy" decoding="async" /></a><figcaption>Giszmo_scale.png</figcaption></figure><figure><a href="/icons/editor/GiszmoTranslate.png" target="_blank" rel="noopener"><img src="/icons/editor/GiszmoTranslate.png" alt="GiszmoTranslate.png" loading="lazy" decoding="async" /></a><figcaption>GiszmoTranslate.png</figcaption></figure><figure><a href="/icons/editor/gizmo.png" target="_blank" rel="noopener"><img src="/icons/editor/gizmo.png" alt="gizmo.png" loading="lazy" decoding="async" /></a><figcaption>gizmo.png</figcaption></figure><figure><a href="/icons/editor/GizmoRotate.png" target="_blank" rel="noopener"><img src="/icons/editor/GizmoRotate.png" alt="GizmoRotate.png" loading="lazy" decoding="async" /></a><figcaption>GizmoRotate.png</figcaption></figure><figure><a href="/icons/editor/GizmoSpline.png" target="_blank" rel="noopener"><img src="/icons/editor/GizmoSpline.png" alt="GizmoSpline.png" loading="lazy" decoding="async" /></a><figcaption>GizmoSpline.png</figcaption></figure><figure><a href="/icons/editor/global.png" target="_blank" rel="noopener"><img src="/icons/editor/global.png" alt="global.png" loading="lazy" decoding="async" /></a><figcaption>global.png</figcaption></figure><figure><a href="/icons/editor/grass.png" target="_blank" rel="noopener"><img src="/icons/editor/grass.png" alt="grass.png" loading="lazy" decoding="async" /></a><figcaption>grass.png</figcaption></figure><figure><a href="/icons/editor/grid-icon.png" target="_blank" rel="noopener"><img src="/icons/editor/grid-icon.png" alt="grid-icon.png" loading="lazy" decoding="async" /></a><figcaption>grid-icon.png</figcaption></figure><figure><a href="/icons/editor/grid.png" target="_blank" rel="noopener"><img src="/icons/editor/grid.png" alt="grid.png" loading="lazy" decoding="async" /></a><figcaption>grid.png</figcaption></figure><figure><a href="/icons/editor/hardware-chip.png" target="_blank" rel="noopener"><img src="/icons/editor/hardware-chip.png" alt="hardware-chip.png" loading="lazy" decoding="async" /></a><figcaption>hardware-chip.png</figcaption></figure><figure><a href="/icons/editor/horizontalthumb.png" target="_blank" rel="noopener"><img src="/icons/editor/horizontalthumb.png" alt="horizontalthumb.png" loading="lazy" decoding="async" /></a><figcaption>horizontalthumb.png</figcaption></figure><figure><a href="/icons/editor/info.png" target="_blank" rel="noopener"><img src="/icons/editor/info.png" alt="info.png" loading="lazy" decoding="async" /></a><figcaption>info.png</figcaption></figure><figure><a href="/icons/editor/lattice.png" target="_blank" rel="noopener"><img src="/icons/editor/lattice.png" alt="lattice.png" loading="lazy" decoding="async" /></a><figcaption>lattice.png</figcaption></figure><figure><a href="/icons/editor/layout-left.png" target="_blank" rel="noopener"><img src="/icons/editor/layout-left.png" alt="layout-left.png" loading="lazy" decoding="async" /></a><figcaption>layout-left.png</figcaption></figure><figure><a href="/icons/editor/layout-right.png" target="_blank" rel="noopener"><img src="/icons/editor/layout-right.png" alt="layout-right.png" loading="lazy" decoding="async" /></a><figcaption>layout-right.png</figcaption></figure><figure><a href="/icons/editor/layout3split.png" target="_blank" rel="noopener"><img src="/icons/editor/layout3split.png" alt="layout3split.png" loading="lazy" decoding="async" /></a><figcaption>layout3split.png</figcaption></figure><figure><a href="/icons/editor/layouttop.png" target="_blank" rel="noopener"><img src="/icons/editor/layouttop.png" alt="layouttop.png" loading="lazy" decoding="async" /></a><figcaption>layouttop.png</figcaption></figure><figure><a href="/icons/editor/leaf.png" target="_blank" rel="noopener"><img src="/icons/editor/leaf.png" alt="leaf.png" loading="lazy" decoding="async" /></a><figcaption>leaf.png</figcaption></figure><figure><a href="/icons/editor/left-arrow.png" target="_blank" rel="noopener"><img src="/icons/editor/left-arrow.png" alt="left-arrow.png" loading="lazy" decoding="async" /></a><figcaption>left-arrow.png</figcaption></figure><figure><a href="/icons/editor/linear_curve.png" target="_blank" rel="noopener"><img src="/icons/editor/linear_curve.png" alt="linear_curve.png" loading="lazy" decoding="async" /></a><figcaption>linear_curve.png</figcaption></figure><figure><a href="/icons/editor/link.png" target="_blank" rel="noopener"><img src="/icons/editor/link.png" alt="link.png" loading="lazy" decoding="async" /></a><figcaption>link.png</figcaption></figure><figure><a href="/icons/editor/list.png" target="_blank" rel="noopener"><img src="/icons/editor/list.png" alt="list.png" loading="lazy" decoding="async" /></a><figcaption>list.png</figcaption></figure><figure><a href="/icons/editor/local.png" target="_blank" rel="noopener"><img src="/icons/editor/local.png" alt="local.png" loading="lazy" decoding="async" /></a><figcaption>local.png</figcaption></figure><figure><a href="/icons/editor/Lock.svg" target="_blank" rel="noopener"><img src="/icons/editor/Lock.svg" alt="Lock.svg" loading="lazy" decoding="async" /></a><figcaption>Lock.svg</figcaption></figure><figure><a href="/icons/editor/LockClosed.png" target="_blank" rel="noopener"><img src="/icons/editor/LockClosed.png" alt="LockClosed.png" loading="lazy" decoding="async" /></a><figcaption>LockClosed.png</figcaption></figure><figure><a href="/icons/editor/LockOpen.png" target="_blank" rel="noopener"><img src="/icons/editor/LockOpen.png" alt="LockOpen.png" loading="lazy" decoding="async" /></a><figcaption>LockOpen.png</figcaption></figure><figure><a href="/icons/editor/LockOpen.svg" target="_blank" rel="noopener"><img src="/icons/editor/LockOpen.svg" alt="LockOpen.svg" loading="lazy" decoding="async" /></a><figcaption>LockOpen.svg</figcaption></figure><figure><a href="/icons/editor/log.png" target="_blank" rel="noopener"><img src="/icons/editor/log.png" alt="log.png" loading="lazy" decoding="async" /></a><figcaption>log.png</figcaption></figure><figure><a href="/icons/editor/logo.png" target="_blank" rel="noopener"><img src="/icons/editor/logo.png" alt="logo.png" loading="lazy" decoding="async" /></a><figcaption>logo.png</figcaption></figure><figure><a href="/icons/editor/loop.png" target="_blank" rel="noopener"><img src="/icons/editor/loop.png" alt="loop.png" loading="lazy" decoding="async" /></a><figcaption>loop.png</figcaption></figure><figure><a href="/icons/editor/looptime.png" target="_blank" rel="noopener"><img src="/icons/editor/looptime.png" alt="looptime.png" loading="lazy" decoding="async" /></a><figcaption>looptime.png</figcaption></figure><figure><a href="/icons/editor/magnet.png" target="_blank" rel="noopener"><img src="/icons/editor/magnet.png" alt="magnet.png" loading="lazy" decoding="async" /></a><figcaption>magnet.png</figcaption></figure><figure><a href="/icons/editor/marker.png" target="_blank" rel="noopener"><img src="/icons/editor/marker.png" alt="marker.png" loading="lazy" decoding="async" /></a><figcaption>marker.png</figcaption></figure><figure><a href="/icons/editor/material.png" target="_blank" rel="noopener"><img src="/icons/editor/material.png" alt="material.png" loading="lazy" decoding="async" /></a><figcaption>material.png</figcaption></figure><figure><a href="/icons/editor/menulist.png" target="_blank" rel="noopener"><img src="/icons/editor/menulist.png" alt="menulist.png" loading="lazy" decoding="async" /></a><figcaption>menulist.png</figcaption></figure><figure><a href="/icons/editor/mixer.png" target="_blank" rel="noopener"><img src="/icons/editor/mixer.png" alt="mixer.png" loading="lazy" decoding="async" /></a><figcaption>mixer.png</figcaption></figure><figure><a href="/icons/editor/music-note-icon@32px.png" target="_blank" rel="noopener"><img src="/icons/editor/music-note-icon@32px.png" alt="music-note-icon@32px.png" loading="lazy" decoding="async" /></a><figcaption>music-note-icon@32px.png</figcaption></figure><figure><a href="/icons/editor/music-note-icon@64px.png" target="_blank" rel="noopener"><img src="/icons/editor/music-note-icon@64px.png" alt="music-note-icon@64px.png" loading="lazy" decoding="async" /></a><figcaption>music-note-icon@64px.png</figcaption></figure><figure><a href="/icons/editor/navgizmo.png" target="_blank" rel="noopener"><img src="/icons/editor/navgizmo.png" alt="navgizmo.png" loading="lazy" decoding="async" /></a><figcaption>navgizmo.png</figcaption></figure><figure><a href="/icons/editor/node.png" target="_blank" rel="noopener"><img src="/icons/editor/node.png" alt="node.png" loading="lazy" decoding="async" /></a><figcaption>node.png</figcaption></figure><figure><a href="/icons/editor/ocean.png" target="_blank" rel="noopener"><img src="/icons/editor/ocean.png" alt="ocean.png" loading="lazy" decoding="async" /></a><figcaption>ocean.png</figcaption></figure><figure><a href="/icons/editor/options.png" target="_blank" rel="noopener"><img src="/icons/editor/options.png" alt="options.png" loading="lazy" decoding="async" /></a><figcaption>options.png</figcaption></figure><figure><a href="/icons/editor/outlinescube.png" target="_blank" rel="noopener"><img src="/icons/editor/outlinescube.png" alt="outlinescube.png" loading="lazy" decoding="async" /></a><figcaption>outlinescube.png</figcaption></figure><figure><a href="/icons/editor/paperclip.png" target="_blank" rel="noopener"><img src="/icons/editor/paperclip.png" alt="paperclip.png" loading="lazy" decoding="async" /></a><figcaption>paperclip.png</figcaption></figure><figure><a href="/icons/editor/paste.png" target="_blank" rel="noopener"><img src="/icons/editor/paste.png" alt="paste.png" loading="lazy" decoding="async" /></a><figcaption>paste.png</figcaption></figure><figure><a href="/icons/editor/pause_on.png" target="_blank" rel="noopener"><img src="/icons/editor/pause_on.png" alt="pause_on.png" loading="lazy" decoding="async" /></a><figcaption>pause_on.png</figcaption></figure><figure><a href="/icons/editor/pause.png" target="_blank" rel="noopener"><img src="/icons/editor/pause.png" alt="pause.png" loading="lazy" decoding="async" /></a><figcaption>pause.png</figcaption></figure><figure><a href="/icons/editor/performace.png" target="_blank" rel="noopener"><img src="/icons/editor/performace.png" alt="performace.png" loading="lazy" decoding="async" /></a><figcaption>performace.png</figcaption></figure><figure><a href="/icons/editor/performance.png" target="_blank" rel="noopener"><img src="/icons/editor/performance.png" alt="performance.png" loading="lazy" decoding="async" /></a><figcaption>performance.png</figcaption></figure><figure><a href="/icons/editor/person.png" target="_blank" rel="noopener"><img src="/icons/editor/person.png" alt="person.png" loading="lazy" decoding="async" /></a><figcaption>person.png</figcaption></figure><figure><a href="/icons/editor/PhysicsSettings.png" target="_blank" rel="noopener"><img src="/icons/editor/PhysicsSettings.png" alt="PhysicsSettings.png" loading="lazy" decoding="async" /></a><figcaption>PhysicsSettings.png</figcaption></figure><figure><a href="/icons/editor/pie-chart.png" target="_blank" rel="noopener"><img src="/icons/editor/pie-chart.png" alt="pie-chart.png" loading="lazy" decoding="async" /></a><figcaption>pie-chart.png</figcaption></figure><figure><a href="/icons/editor/pin.png" target="_blank" rel="noopener"><img src="/icons/editor/pin.png" alt="pin.png" loading="lazy" decoding="async" /></a><figcaption>pin.png</figcaption></figure><figure><a href="/icons/editor/placeholder.png" target="_blank" rel="noopener"><img src="/icons/editor/placeholder.png" alt="placeholder.png" loading="lazy" decoding="async" /></a><figcaption>placeholder.png</figcaption></figure><figure><a href="/icons/editor/Plane.png" target="_blank" rel="noopener"><img src="/icons/editor/Plane.png" alt="Plane.png" loading="lazy" decoding="async" /></a><figcaption>Plane.png</figcaption></figure><figure><a href="/icons/editor/planet.png" target="_blank" rel="noopener"><img src="/icons/editor/planet.png" alt="planet.png" loading="lazy" decoding="async" /></a><figcaption>planet.png</figcaption></figure><figure><a href="/icons/editor/play-backward.png" target="_blank" rel="noopener"><img src="/icons/editor/play-backward.png" alt="play-backward.png" loading="lazy" decoding="async" /></a><figcaption>play-backward.png</figcaption></figure><figure><a href="/icons/editor/play.png" target="_blank" rel="noopener"><img src="/icons/editor/play.png" alt="play.png" loading="lazy" decoding="async" /></a><figcaption>play.png</figcaption></figure><figure><a href="/icons/editor/playactive.png" target="_blank" rel="noopener"><img src="/icons/editor/playactive.png" alt="playactive.png" loading="lazy" decoding="async" /></a><figcaption>playactive.png</figcaption></figure><figure><a href="/icons/editor/playbackwardactive.png" target="_blank" rel="noopener"><img src="/icons/editor/playbackwardactive.png" alt="playbackwardactive.png" loading="lazy" decoding="async" /></a><figcaption>playbackwardactive.png</figcaption></figure><figure><a href="/icons/editor/plus.png" target="_blank" rel="noopener"><img src="/icons/editor/plus.png" alt="plus.png" loading="lazy" decoding="async" /></a><figcaption>plus.png</figcaption></figure><figure><a href="/icons/editor/PointLight.png" target="_blank" rel="noopener"><img src="/icons/editor/PointLight.png" alt="PointLight.png" loading="lazy" decoding="async" /></a><figcaption>PointLight.png</figcaption></figure><figure><a href="/icons/editor/post.png" target="_blank" rel="noopener"><img src="/icons/editor/post.png" alt="post.png" loading="lazy" decoding="async" /></a><figcaption>post.png</figcaption></figure><figure><a href="/icons/editor/postfx.png" target="_blank" rel="noopener"><img src="/icons/editor/postfx.png" alt="postfx.png" loading="lazy" decoding="async" /></a><figcaption>postfx.png</figcaption></figure><figure><a href="/icons/editor/probe.png" target="_blank" rel="noopener"><img src="/icons/editor/probe.png" alt="probe.png" loading="lazy" decoding="async" /></a><figcaption>probe.png</figcaption></figure><figure><a href="/icons/editor/pulse.png" target="_blank" rel="noopener"><img src="/icons/editor/pulse.png" alt="pulse.png" loading="lazy" decoding="async" /></a><figcaption>pulse.png</figcaption></figure><figure><a href="/icons/editor/record.png" target="_blank" rel="noopener"><img src="/icons/editor/record.png" alt="record.png" loading="lazy" decoding="async" /></a><figcaption>record.png</figcaption></figure><figure><a href="/icons/editor/recording_off_button.png" target="_blank" rel="noopener"><img src="/icons/editor/recording_off_button.png" alt="recording_off_button.png" loading="lazy" decoding="async" /></a><figcaption>recording_off_button.png</figcaption></figure><figure><a href="/icons/editor/recording_on_button.png" target="_blank" rel="noopener"><img src="/icons/editor/recording_on_button.png" alt="recording_on_button.png" loading="lazy" decoding="async" /></a><figcaption>recording_on_button.png</figcaption></figure><figure><a href="/icons/editor/recording.png" target="_blank" rel="noopener"><img src="/icons/editor/recording.png" alt="recording.png" loading="lazy" decoding="async" /></a><figcaption>recording.png</figcaption></figure><figure><a href="/icons/editor/reorder-two.png" target="_blank" rel="noopener"><img src="/icons/editor/reorder-two.png" alt="reorder-two.png" loading="lazy" decoding="async" /></a><figcaption>reorder-two.png</figcaption></figure><figure><a href="/icons/editor/ResetReload.png" target="_blank" rel="noopener"><img src="/icons/editor/ResetReload.png" alt="ResetReload.png" loading="lazy" decoding="async" /></a><figcaption>ResetReload.png</figcaption></figure><figure><a href="/icons/editor/retime.png" target="_blank" rel="noopener"><img src="/icons/editor/retime.png" alt="retime.png" loading="lazy" decoding="async" /></a><figcaption>retime.png</figcaption></figure><figure><a href="/icons/editor/right-arrow.png" target="_blank" rel="noopener"><img src="/icons/editor/right-arrow.png" alt="right-arrow.png" loading="lazy" decoding="async" /></a><figcaption>right-arrow.png</figcaption></figure><figure><a href="/icons/editor/Ruler.png" target="_blank" rel="noopener"><img src="/icons/editor/Ruler.png" alt="Ruler.png" loading="lazy" decoding="async" /></a><figcaption>Ruler.png</figcaption></figure><figure><a href="/icons/editor/Ruler.svg" target="_blank" rel="noopener"><img src="/icons/editor/Ruler.svg" alt="Ruler.svg" loading="lazy" decoding="async" /></a><figcaption>Ruler.svg</figcaption></figure><figure><a href="/icons/editor/save.png" target="_blank" rel="noopener"><img src="/icons/editor/save.png" alt="save.png" loading="lazy" decoding="async" /></a><figcaption>save.png</figcaption></figure><figure><a href="/icons/editor/scene.png" target="_blank" rel="noopener"><img src="/icons/editor/scene.png" alt="scene.png" loading="lazy" decoding="async" /></a><figcaption>scene.png</figcaption></figure><figure><a href="/icons/editor/sceneicon.png" target="_blank" rel="noopener"><img src="/icons/editor/sceneicon.png" alt="sceneicon.png" loading="lazy" decoding="async" /></a><figcaption>sceneicon.png</figcaption></figure><figure><a href="/icons/editor/search.png" target="_blank" rel="noopener"><img src="/icons/editor/search.png" alt="search.png" loading="lazy" decoding="async" /></a><figcaption>search.png</figcaption></figure><figure><a href="/icons/editor/settings.png" target="_blank" rel="noopener"><img src="/icons/editor/settings.png" alt="settings.png" loading="lazy" decoding="async" /></a><figcaption>settings.png</figcaption></figure><figure><a href="/icons/editor/SettingsAppearance.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsAppearance.png" alt="SettingsAppearance.png" loading="lazy" decoding="async" /></a><figcaption>SettingsAppearance.png</figcaption></figure><figure><a href="/icons/editor/SettingsAppearance.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsAppearance.svg" alt="SettingsAppearance.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsAppearance.svg</figcaption></figure><figure><a href="/icons/editor/SettingsAssetImport.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsAssetImport.png" alt="SettingsAssetImport.png" loading="lazy" decoding="async" /></a><figcaption>SettingsAssetImport.png</figcaption></figure><figure><a href="/icons/editor/SettingsAssetImport.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsAssetImport.svg" alt="SettingsAssetImport.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsAssetImport.svg</figcaption></figure><figure><a href="/icons/editor/SettingsAssets.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsAssets.png" alt="SettingsAssets.png" loading="lazy" decoding="async" /></a><figcaption>SettingsAssets.png</figcaption></figure><figure><a href="/icons/editor/SettingsAssets.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsAssets.svg" alt="SettingsAssets.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsAssets.svg</figcaption></figure><figure><a href="/icons/editor/SettingsFontRendering.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsFontRendering.png" alt="SettingsFontRendering.png" loading="lazy" decoding="async" /></a><figcaption>SettingsFontRendering.png</figcaption></figure><figure><a href="/icons/editor/SettingsFontRendering.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsFontRendering.svg" alt="SettingsFontRendering.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsFontRendering.svg</figcaption></figure><figure><a href="/icons/editor/SettingsHiDPI.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsHiDPI.png" alt="SettingsHiDPI.png" loading="lazy" decoding="async" /></a><figcaption>SettingsHiDPI.png</figcaption></figure><figure><a href="/icons/editor/SettingsHiDPI.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsHiDPI.svg" alt="SettingsHiDPI.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsHiDPI.svg</figcaption></figure><figure><a href="/icons/editor/SettingsInspector.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsInspector.png" alt="SettingsInspector.png" loading="lazy" decoding="async" /></a><figcaption>SettingsInspector.png</figcaption></figure><figure><a href="/icons/editor/SettingsInspector.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsInspector.svg" alt="SettingsInspector.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsInspector.svg</figcaption></figure><figure><a href="/icons/editor/SettingsLinux.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsLinux.png" alt="SettingsLinux.png" loading="lazy" decoding="async" /></a><figcaption>SettingsLinux.png</figcaption></figure><figure><a href="/icons/editor/SettingsLinux.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsLinux.svg" alt="SettingsLinux.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsLinux.svg</figcaption></figure><figure><a href="/icons/editor/SettingsOnlineAssets.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsOnlineAssets.png" alt="SettingsOnlineAssets.png" loading="lazy" decoding="async" /></a><figcaption>SettingsOnlineAssets.png</figcaption></figure><figure><a href="/icons/editor/SettingsOnlineAssets.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsOnlineAssets.svg" alt="SettingsOnlineAssets.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsOnlineAssets.svg</figcaption></figure><figure><a href="/icons/editor/SettingsPerformance.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsPerformance.png" alt="SettingsPerformance.png" loading="lazy" decoding="async" /></a><figcaption>SettingsPerformance.png</figcaption></figure><figure><a href="/icons/editor/SettingsPerformance.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsPerformance.svg" alt="SettingsPerformance.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsPerformance.svg</figcaption></figure><figure><a href="/icons/editor/SettingsRendering.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsRendering.png" alt="SettingsRendering.png" loading="lazy" decoding="async" /></a><figcaption>SettingsRendering.png</figcaption></figure><figure><a href="/icons/editor/SettingsRendering.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsRendering.svg" alt="SettingsRendering.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsRendering.svg</figcaption></figure><figure><a href="/icons/editor/SettingsScene.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsScene.png" alt="SettingsScene.png" loading="lazy" decoding="async" /></a><figcaption>SettingsScene.png</figcaption></figure><figure><a href="/icons/editor/SettingsScene.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsScene.svg" alt="SettingsScene.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsScene.svg</figcaption></figure><figure><a href="/icons/editor/SettingsScript.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsScript.png" alt="SettingsScript.png" loading="lazy" decoding="async" /></a><figcaption>SettingsScript.png</figcaption></figure><figure><a href="/icons/editor/SettingsScript.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsScript.svg" alt="SettingsScript.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsScript.svg</figcaption></figure><figure><a href="/icons/editor/SettingsShortcuts.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsShortcuts.png" alt="SettingsShortcuts.png" loading="lazy" decoding="async" /></a><figcaption>SettingsShortcuts.png</figcaption></figure><figure><a href="/icons/editor/SettingsShortcuts.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsShortcuts.svg" alt="SettingsShortcuts.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsShortcuts.svg</figcaption></figure><figure><a href="/icons/editor/SettingsTags.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsTags.png" alt="SettingsTags.png" loading="lazy" decoding="async" /></a><figcaption>SettingsTags.png</figcaption></figure><figure><a href="/icons/editor/SettingsTags.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsTags.svg" alt="SettingsTags.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsTags.svg</figcaption></figure><figure><a href="/icons/editor/SettingsTooltips.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsTooltips.png" alt="SettingsTooltips.png" loading="lazy" decoding="async" /></a><figcaption>SettingsTooltips.png</figcaption></figure><figure><a href="/icons/editor/SettingsTooltips.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsTooltips.svg" alt="SettingsTooltips.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsTooltips.svg</figcaption></figure><figure><a href="/icons/editor/SettingsTrees.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsTrees.png" alt="SettingsTrees.png" loading="lazy" decoding="async" /></a><figcaption>SettingsTrees.png</figcaption></figure><figure><a href="/icons/editor/SettingsTrees.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsTrees.svg" alt="SettingsTrees.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsTrees.svg</figcaption></figure><figure><a href="/icons/editor/SettingsUI.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsUI.png" alt="SettingsUI.png" loading="lazy" decoding="async" /></a><figcaption>SettingsUI.png</figcaption></figure><figure><a href="/icons/editor/SettingsUI.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsUI.svg" alt="SettingsUI.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsUI.svg</figcaption></figure><figure><a href="/icons/editor/SettingsVersionControl.png" target="_blank" rel="noopener"><img src="/icons/editor/SettingsVersionControl.png" alt="SettingsVersionControl.png" loading="lazy" decoding="async" /></a><figcaption>SettingsVersionControl.png</figcaption></figure><figure><a href="/icons/editor/SettingsVersionControl.svg" target="_blank" rel="noopener"><img src="/icons/editor/SettingsVersionControl.svg" alt="SettingsVersionControl.svg" loading="lazy" decoding="async" /></a><figcaption>SettingsVersionControl.svg</figcaption></figure><figure><a href="/icons/editor/simplyfy_curve.png" target="_blank" rel="noopener"><img src="/icons/editor/simplyfy_curve.png" alt="simplyfy_curve.png" loading="lazy" decoding="async" /></a><figcaption>simplyfy_curve.png</figcaption></figure><figure><a href="/icons/editor/skyenvironment.png" target="_blank" rel="noopener"><img src="/icons/editor/skyenvironment.png" alt="skyenvironment.png" loading="lazy" decoding="async" /></a><figcaption>skyenvironment.png</figcaption></figure><figure><a href="/icons/editor/SlimArrowAgnled.png" target="_blank" rel="noopener"><img src="/icons/editor/SlimArrowAgnled.png" alt="SlimArrowAgnled.png" loading="lazy" decoding="async" /></a><figcaption>SlimArrowAgnled.png</figcaption></figure><figure><a href="/icons/editor/SlimArrowRight.png" target="_blank" rel="noopener"><img src="/icons/editor/SlimArrowRight.png" alt="SlimArrowRight.png" loading="lazy" decoding="async" /></a><figcaption>SlimArrowRight.png</figcaption></figure><figure><a href="/icons/editor/SlimArrowUp.png" target="_blank" rel="noopener"><img src="/icons/editor/SlimArrowUp.png" alt="SlimArrowUp.png" loading="lazy" decoding="async" /></a><figcaption>SlimArrowUp.png</figcaption></figure><figure><a href="/icons/editor/smooth_curve.png" target="_blank" rel="noopener"><img src="/icons/editor/smooth_curve.png" alt="smooth_curve.png" loading="lazy" decoding="async" /></a><figcaption>smooth_curve.png</figcaption></figure><figure><a href="/icons/editor/smooth_peak.png" target="_blank" rel="noopener"><img src="/icons/editor/smooth_peak.png" alt="smooth_peak.png" loading="lazy" decoding="async" /></a><figcaption>smooth_peak.png</figcaption></figure><figure><a href="/icons/editor/snap%20time.png" target="_blank" rel="noopener"><img src="/icons/editor/snap%20time.png" alt="snap time.png" loading="lazy" decoding="async" /></a><figcaption>snap time.png</figcaption></figure><figure><a href="/icons/editor/snap%20value.png" target="_blank" rel="noopener"><img src="/icons/editor/snap%20value.png" alt="snap value.png" loading="lazy" decoding="async" /></a><figcaption>snap value.png</figcaption></figure><figure><a href="/icons/editor/sorting.png" target="_blank" rel="noopener"><img src="/icons/editor/sorting.png" alt="sorting.png" loading="lazy" decoding="async" /></a><figcaption>sorting.png</figcaption></figure><figure><a href="/icons/editor/sparkles.png" target="_blank" rel="noopener"><img src="/icons/editor/sparkles.png" alt="sparkles.png" loading="lazy" decoding="async" /></a><figcaption>sparkles.png</figcaption></figure><figure><a href="/icons/editor/Sphere.png" target="_blank" rel="noopener"><img src="/icons/editor/Sphere.png" alt="Sphere.png" loading="lazy" decoding="async" /></a><figcaption>Sphere.png</figcaption></figure><figure><a href="/icons/editor/spline_curve.png" target="_blank" rel="noopener"><img src="/icons/editor/spline_curve.png" alt="spline_curve.png" loading="lazy" decoding="async" /></a><figcaption>spline_curve.png</figcaption></figure><figure><a href="/icons/editor/SpotLight.png" target="_blank" rel="noopener"><img src="/icons/editor/SpotLight.png" alt="SpotLight.png" loading="lazy" decoding="async" /></a><figcaption>SpotLight.png</figcaption></figure><figure><a href="/icons/editor/star.png" target="_blank" rel="noopener"><img src="/icons/editor/star.png" alt="star.png" loading="lazy" decoding="async" /></a><figcaption>star.png</figcaption></figure><figure><a href="/icons/editor/stats.png" target="_blank" rel="noopener"><img src="/icons/editor/stats.png" alt="stats.png" loading="lazy" decoding="async" /></a><figcaption>stats.png</figcaption></figure><figure><a href="/icons/editor/stepped_curve.png" target="_blank" rel="noopener"><img src="/icons/editor/stepped_curve.png" alt="stepped_curve.png" loading="lazy" decoding="async" /></a><figcaption>stepped_curve.png</figcaption></figure><figure><a href="/icons/editor/stop.png" target="_blank" rel="noopener"><img src="/icons/editor/stop.png" alt="stop.png" loading="lazy" decoding="async" /></a><figcaption>stop.png</figcaption></figure><figure><a href="/icons/editor/sync-playhead.png" target="_blank" rel="noopener"><img src="/icons/editor/sync-playhead.png" alt="sync-playhead.png" loading="lazy" decoding="async" /></a><figcaption>sync-playhead.png</figcaption></figure><figure><a href="/icons/editor/terrain.png" target="_blank" rel="noopener"><img src="/icons/editor/terrain.png" alt="terrain.png" loading="lazy" decoding="async" /></a><figcaption>terrain.png</figcaption></figure><figure><a href="/icons/editor/tilemapper.png" target="_blank" rel="noopener"><img src="/icons/editor/tilemapper.png" alt="tilemapper.png" loading="lazy" decoding="async" /></a><figcaption>tilemapper.png</figcaption></figure><figure><a href="/icons/editor/timer.png" target="_blank" rel="noopener"><img src="/icons/editor/timer.png" alt="timer.png" loading="lazy" decoding="async" /></a><figcaption>timer.png</figcaption></figure><figure><a href="/icons/editor/todolist.png" target="_blank" rel="noopener"><img src="/icons/editor/todolist.png" alt="todolist.png" loading="lazy" decoding="async" /></a><figcaption>todolist.png</figcaption></figure><figure><a href="/icons/editor/toggle_keytool.png" target="_blank" rel="noopener"><img src="/icons/editor/toggle_keytool.png" alt="toggle_keytool.png" loading="lazy" decoding="async" /></a><figcaption>toggle_keytool.png</figcaption></figure><figure><a href="/icons/editor/trash.png" target="_blank" rel="noopener"><img src="/icons/editor/trash.png" alt="trash.png" loading="lazy" decoding="async" /></a><figcaption>trash.png</figcaption></figure><figure><a href="/icons/editor/undo.png" target="_blank" rel="noopener"><img src="/icons/editor/undo.png" alt="undo.png" loading="lazy" decoding="async" /></a><figcaption>undo.png</figcaption></figure><figure><a href="/icons/editor/unify_tangent.png" target="_blank" rel="noopener"><img src="/icons/editor/unify_tangent.png" alt="unify_tangent.png" loading="lazy" decoding="async" /></a><figcaption>unify_tangent.png</figcaption></figure><figure><a href="/icons/editor/vector.png" target="_blank" rel="noopener"><img src="/icons/editor/vector.png" alt="vector.png" loading="lazy" decoding="async" /></a><figcaption>vector.png</figcaption></figure><figure><a href="/icons/editor/videocam.png" target="_blank" rel="noopener"><img src="/icons/editor/videocam.png" alt="videocam.png" loading="lazy" decoding="async" /></a><figcaption>videocam.png</figcaption></figure><figure><a href="/icons/editor/wind.png" target="_blank" rel="noopener"><img src="/icons/editor/wind.png" alt="wind.png" loading="lazy" decoding="async" /></a><figcaption>wind.png</figcaption></figure><figure><a href="/icons/editor/xclose.png" target="_blank" rel="noopener"><img src="/icons/editor/xclose.png" alt="xclose.png" loading="lazy" decoding="async" /></a><figcaption>xclose.png</figcaption></figure></div><p class="purpose" style="margin-top:14px"><strong>217</strong> files in <code>/icons/editor/</code>.</p>
+            </div>
+          </article>
+
+          <article class="card" id="labels">
+            <header>
+              <h3>Labels</h3>
+              <p class="purpose">Static text, property names, headings, status text, and empty states.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span style="width:90px;color:#b9bbb9">Roughness</span><span class="demo-field"></span></div>
+              <div class="meta"><span class="pill">inspector-label</span><span class="pill">inspector-text</span><span class="pill">inspector-header</span></div>
+              <pre>&lt;Label class="inspector-label" text="Roughness" /&gt;</pre>
+              <p class="purpose">Do not use labels as command controls when a clear hit area is needed.</p>
+            </div>
+          </article>
+
+          <article class="card" id="boolean">
+            <header>
+              <h3>Boolean Controls</h3>
+              <p class="purpose">Checkboxes for explicit choices, toggles for switch-like state.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span style="width:18px;height:18px;border:2px solid #3a8fff;border-radius:4px;background:#3a8fff"></span><span class="demo-toggle"></span></div>
+              <div class="meta"><span class="pill">checkbox</span><span class="pill">toggle</span><span class="pill">inspector-toggle</span></div>
+              <pre>&lt;Checkbox text="Enable shadows" checked="true" /&gt;</pre>
+              <p class="purpose">Keep row cells stable so checked state does not reflow the panel.</p>
+            </div>
+          </article>
+
+          <article class="card" id="dropdowns">
+            <header>
+              <h3>Dropdowns</h3>
+              <p class="purpose">Bounded option sets in UI or native OS mode.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span class="demo-field" style="display:flex;align-items:center;padding:0 10px;color:#e5e5e5">Directional</span></div>
+              <div class="meta"><span class="pill">dropdown</span><span class="pill">inspector-dropdown</span><span class="pill">open</span></div>
+              <pre>&lt;Dropdown class="inspector-dropdown" options="Directional,Point,Spot" /&gt;</pre>
+              <p class="purpose">Inspector dropdowns stretch to the field column; bottom bar popups open upward.</p>
+            </div>
+          </article>
+
+          <article class="card" id="fields">
+            <header>
+              <h3>Text And Numeric Fields</h3>
+              <p class="purpose">Text input, multiline text, float/int values, and vector groups.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span class="demo-field"></span><span class="demo-field"></span><span class="demo-field"></span></div>
+              <div class="meta"><span class="pill">TextField</span><span class="pill">FloatField</span><span class="pill">Vector3Field</span></div>
+              <pre>&lt;Vector3Field id="Position" class="inspector-vector3" /&gt;</pre>
+              <p class="purpose">Vector components shrink to 40 px minimum; preserve focused fields during refresh.</p>
+            </div>
+          </article>
+
+          <article class="card" id="sliders">
+            <header>
+              <h3>Sliders</h3>
+              <p class="purpose">Continuous and stepped values that benefit from scrubbing.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span style="height:4px;flex:1;background:#3a8fff;border-radius:2px"></span><span style="width:14px;height:14px;border-radius:50%;background:#fff"></span></div>
+              <div class="meta"><span class="pill">inspector-slider</span><span class="pill">valuebubble</span><span class="pill">range</span></div>
+              <pre>&lt;Slider min="0" max="10" value="1" step="0.01" /&gt;</pre>
+              <p class="purpose">Pair with numeric fields when precision matters; commit once per gesture.</p>
+            </div>
+          </article>
+
+          <article class="card" id="disclosure">
+            <header>
+              <h3>Foldout And Accordion</h3>
+              <p class="purpose">Collapsible sections and grouped disclosure.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span style="color:#91c4ff">v</span><strong>Render Settings</strong></div>
+              <div class="meta"><span class="pill">Foldout</span><span class="pill">Accordion</span><span class="pill">inspector-section</span></div>
+              <pre>&lt;Accordion id="SettingsGroups" mode="exclusive" /&gt;</pre>
+              <p class="purpose">Use <code>InspectorSection</code> for inspector component sections.</p>
+            </div>
+          </article>
+
+          <article class="card" id="search">
+            <header>
+              <h3>Search Dialog</h3>
+              <p class="purpose">Command, asset, and filtered-list pickers.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span class="demo-field" style="display:flex;align-items:center;padding:0 10px;color:#858885">Search assets</span></div>
+              <div class="meta"><span class="pill">SearchDialog</span><span class="pill">results</span><span class="pill">highlighted</span></div>
+              <pre>auto dialog = std::make_unique&lt;SearchDialog&gt;();</pre>
+              <p class="purpose">Anchor to the invoking field or a predictable panel region.</p>
+            </div>
+          </article>
+
+          <article class="card" id="asset-field">
+            <header>
+              <h3>Asset Field</h3>
+              <p class="purpose">GUID asset selection with search, clear behavior, thumbnails, and drag/drop.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span style="width:24px;height:24px;background:#ffffff33;border-radius:4px"></span><span style="color:#e5e5e5">Material.mat</span><span class="mock-spacer"></span><span style="color:#858885">x</span></div>
+              <div class="meta"><span class="pill">asset-field</span><span class="pill">asset-field-preview</span><span class="pill">asset-field-clear</span></div>
+              <pre>field-&gt;SetAcceptedTypes({AssetType::Material});</pre>
+              <p class="purpose">Use instead of rebuilding picker behavior in inspectors.</p>
+            </div>
+          </article>
+
+          <article class="card" id="collections">
+            <header>
+              <h3>Tree, Grid, List, Scroll</h3>
+              <p class="purpose">Hierarchy trees, asset thumbnails, dense rows, and scroll ownership.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span class="tree-row selected" style="flex:1;padding:0 8px">Selected Item</span></div>
+              <div class="meta"><span class="pill">treeview</span><span class="pill">gridview</span><span class="pill">listview</span><span class="pill">scrollview</span></div>
+              <pre>&lt;scrollview class="inspector-scrollview"&gt;...&lt;/scrollview&gt;</pre>
+              <p class="purpose">Scrollable panels need constrained parents and <code>min-height: 0</code>.</p>
+            </div>
+          </article>
+
+          <article class="card" id="layout-primitives">
+            <header>
+              <h3>Layout Primitives</h3>
+              <p class="purpose">Split panes, weighted regions, mounted subtrees, and scroll primitives.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span class="demo-field" style="flex:0 0 35%"></span><span style="width:4px;height:34px;background:#6e6e6e"></span><span class="demo-field"></span></div>
+              <div class="meta"><span class="pill">pane</span><span class="pill">splitter</span><span class="pill">splitview</span><span class="pill">Mount</span><span class="pill">scrollbar</span></div>
+              <pre>&lt;pane weight="0.35" /&gt;
+&lt;splitter class="splitter row" /&gt;</pre>
+              <p class="purpose">Use for runtime-resizable layouts and portal-like mounted panel content.</p>
+            </div>
+          </article>
+
+          <article class="card" id="diagnostics">
+            <header>
+              <h3>Charts And Logs</h3>
+              <p class="purpose">Profiler charts, virtualized logs, status rows, and diagnostic severity.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span style="height:28px;flex:1;border-left:3px solid #60a0ff;background:#222"></span><span style="height:28px;flex:1;border-left:3px solid #f08040;background:#222"></span></div>
+              <div class="meta"><span class="pill">ChartView</span><span class="pill">LogView</span><span class="pill">log-warning</span><span class="pill">log-error</span></div>
+              <pre>auto chart = std::make_unique&lt;ChartView&gt;();</pre>
+              <p class="purpose">Keep charts stable in height and logs dense/virtualized for large data.</p>
+            </div>
+          </article>
+
+          <article class="card" id="color-picker">
+            <header>
+              <h3>Color Picker</h3>
+              <p class="purpose">Shared color selection, popups, swatches, and live preview/apply flows.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span style="width:34px;height:34px;border-radius:50%;background:conic-gradient(red,yellow,lime,cyan,blue,magenta,red)"></span><span class="demo-field" style="background:#402020"></span></div>
+              <div class="meta"><span class="pill">ColorPicker</span><span class="pill">ColorPickerPopup</span><span class="pill">ColorPickerCallbacks</span></div>
+              <pre>ctx.OpenColorPickerWindow(initialColor, intensity, callbacks);</pre>
+              <p class="purpose">Use preview/commit semantics: live while dragging, commit on apply/final change.</p>
+            </div>
+          </article>
+
+
+
+          <article class="card grid-span-full" id="scene-widgets">
+            <header>
+              <h3>Scene View Widgets</h3>
+              <p class="purpose">The current viewport toolbar, transform tools, navigation controls, measurement overlays, and quad-view surface.</p>
+            </header>
+            <div class="card-body">
+              <div class="sceneview-demo" aria-label="Current Scene View controls">
+                <div class="sceneview-demo-toolbar">
+                  <div class="sceneview-demo-bookmarks" title="Camera bookmarks">
+                    <span class="sceneview-demo-bookmark">1</span>
+                    <span class="sceneview-demo-bookmark">2</span>
+                    <span class="sceneview-demo-bookmark">+</span>
+                  </div>
+                  <div class="sceneview-demo-tool active" title="Select"><img src="/icons/editor/arrowmouse.png" alt=""></div>
+                  <div class="sceneview-demo-tool" title="Translate"><img src="/icons/editor/GiszmoTranslate.png" alt=""></div>
+                  <div class="sceneview-demo-tool" title="Rotate"><img src="/icons/editor/GizmoRotate.png" alt=""></div>
+                  <div class="sceneview-demo-tool" title="Scale"><img src="/icons/editor/Giszmo_scale.png" alt=""></div>
+                  <div class="mock-spacer"></div>
+                  <div class="sceneview-demo-right">
+                    <div class="sceneview-demo-control" title="Camera settings"><img src="/icons/editor/videocam.png?v=20260724" alt=""></div>
+                    <div class="sceneview-demo-control" title="Grid"><img src="/icons/editor/grid-icon.png" alt=""></div>
+                    <div class="sceneview-demo-control" title="Snap"><img src="/icons/editor/magnet.png" alt=""></div>
+                    <div class="sceneview-demo-control" title="Gizmos"><img src="/icons/editor/gizmo.png" alt=""></div>
+                    <div class="sceneview-demo-control" title="Pick mode"><img src="/icons/editor/arrowmouse.png" alt=""></div>
+                    <div class="sceneview-demo-control" title="Global or local space"><img src="/icons/editor/global.png" alt=""></div>
+                    <div class="sceneview-demo-control" title="2D or 3D"><img src="/icons/editor/3d.png" alt=""></div>
+                    <div class="sceneview-demo-control" title="Projection"><img src="/icons/editor/camera.png" alt=""></div>
+                    <div class="sceneview-demo-control" title="Quad view"><img src="/icons/editor/layout3split.png" alt=""></div>
+                    <div class="sceneview-demo-control" title="Post-processing"><img src="/icons/editor/post.png" alt=""></div>
+                    <div class="sceneview-demo-control" title="Rotation gizmo"><img src="/icons/editor/navgizmo.png" alt=""></div>
+                  </div>
+                </div>
+                <div class="sceneview-demo-stage">
+                  <div class="sceneview-demo-floating-tools" title="Floating Scene tool overlay">
+                    <div class="sceneview-demo-tool active"><img src="/icons/editor/arrowmouse.png" alt=""></div>
+                    <div class="sceneview-demo-tool"><img src="/icons/editor/GiszmoTranslate.png" alt=""></div>
+                    <div class="sceneview-demo-tool"><img src="/icons/editor/GizmoRotate.png" alt=""></div>
+                    <div class="sceneview-demo-tool"><img src="/icons/editor/Ruler.png?v=20260724" alt=""></div>
+                  </div>
+                  <div class="sceneview-demo-gizmo" title="Viewport rotation gizmo"></div>
+                  <div class="sceneview-demo-measure" title="Scene measurement overlay"><span>3.42 m</span></div>
+                  <div class="sceneview-demo-status"><span>PERSPECTIVE</span><span>POST FX</span></div>
+                </div>
+              </div>
+              <div class="meta">
+                <span class="pill">SceneViewToolbar</span>
+                <span class="pill">CameraBookmarksWidget</span>
+                <span class="pill">SceneViewRulerOverlay</span>
+                <span class="pill">SceneViewMeasureOverlay</span>
+                <span class="pill">ViewportRotationGizmo</span>
+              </div>
+              <pre>&lt;SceneViewToolbar id="SceneViewToolbar" class="sceneview-toolbar"&gt;
+            &lt;CameraBookmarksWidget id="CameraBookmarks" /&gt;
+          &lt;/SceneViewToolbar&gt;
+          &lt;SceneViewRulerOverlay id="SceneViewRulerOverlay" /&gt;
+          &lt;SceneViewMeasureOverlay id="SceneViewMeasureOverlay" /&gt;
+          &lt;ViewportRotationGizmo id="ViewportRotationGizmo" /&gt;</pre>
+              <p class="purpose">Supports floating or inline tools, toolbar reordering, camera and grid settings, pick and transform modes, 2D/3D and projection switching, quad view, post-processing, rulers, metric/imperial measurements, and corner-aware orientation navigation.</p>
+            </div>
+          </article>
+
+
+
+          <article class="card grid-span-full" id="timeline-controls">
+            <header>
+              <h3>Animation Curves &amp; Value Graph</h3>
+              <p class="purpose">The current animation window combines dopesheets, editable value curves, clip lanes, markers, rulers, and visible-range controls.</p>
+            </header>
+            <div class="card-body">
+              <div class="animation-demo" aria-label="Current animation curves and value graph controls">
+                <div class="animation-demo-sidebar">
+                  <div class="animation-demo-panel-title"><span>Properties</span><span>⋯</span></div>
+                  <div class="animation-demo-search">Search animated</div>
+                  <div class="animation-demo-track active"><span class="caret">▼</span><span class="channel" style="--channel:#e35d6a"></span><span>Position</span></div>
+                  <div class="animation-demo-track"><span></span><span class="channel" style="--channel:#e35d6a"></span><span>X</span></div>
+                  <div class="animation-demo-track"><span></span><span class="channel" style="--channel:#68c87a"></span><span>Y</span></div>
+                  <div class="animation-demo-track"><span></span><span class="channel" style="--channel:#5997ef"></span><span>Z</span></div>
+                  <div class="animation-demo-track"><span class="caret">▶</span><span class="channel" style="--channel:#e6b94e"></span><span>Post FX Weight</span></div>
+                </div>
+                <div class="animation-demo-main">
+                  <div class="animation-demo-toolbar">
+                    <span class="view-button">Dope Sheet</span>
+                    <span class="view-button active">Curves</span>
+                    <span class="divider"></span>
+                    <span class="tool-button" title="Linear curve"><img src="/icons/editor/linear_curve.png" alt=""></span>
+                    <span class="tool-button" title="Stepped curve"><img src="/icons/editor/stepped_curve.png" alt=""></span>
+                    <span class="tool-button" title="Spline curve"><img src="/icons/editor/spline_curve.png" alt=""></span>
+                    <span class="tool-button" title="Smooth curve"><img src="/icons/editor/smooth_curve.png" alt=""></span>
+                    <span class="tool-button" title="Draw curve"><img src="/icons/editor/draw_curve.png" alt=""></span>
+                    <span class="tool-button" title="Simplify curve"><img src="/icons/editor/simplyfy_curve.png" alt=""></span>
+                  </div>
+                  <div class="animation-demo-graph">
+                    <svg viewBox="0 0 620 180" preserveAspectRatio="none" aria-hidden="true">
+                      <path d="M0 139 C68 142, 86 115, 136 110 S217 50, 277 65 S366 126, 420 92 S528 30, 620 45" fill="none" stroke="#e35d6a" stroke-width="2.2"/>
+                      <path d="M0 119 C74 109, 98 58, 153 65 S239 135, 307 120 S390 62, 449 68 S548 109, 620 92" fill="none" stroke="#68c87a" stroke-width="2"/>
+                      <path d="M0 151 C64 129, 109 145, 173 124 S259 87, 332 101 S424 137, 486 118 S555 65, 620 55" fill="none" stroke="#5997ef" stroke-width="2"/>
+                      <g fill="#15171b" stroke-width="2">
+                        <rect x="131" y="105" width="9" height="9" transform="rotate(45 135.5 109.5)" stroke="#e35d6a"/>
+                        <rect x="272" y="60" width="9" height="9" transform="rotate(45 276.5 64.5)" stroke="#e35d6a"/>
+                        <rect x="415" y="87" width="9" height="9" transform="rotate(45 419.5 91.5)" stroke="#e35d6a"/>
+                        <rect x="148" y="60" width="9" height="9" transform="rotate(45 152.5 64.5)" stroke="#68c87a"/>
+                        <rect x="302" y="115" width="9" height="9" transform="rotate(45 306.5 119.5)" stroke="#68c87a"/>
+                        <rect x="444" y="63" width="9" height="9" transform="rotate(45 448.5 67.5)" stroke="#68c87a"/>
+                        <rect x="169" y="120" width="9" height="9" transform="rotate(45 173.5 124.5)" stroke="#5997ef"/>
+                        <rect x="327" y="96" width="9" height="9" transform="rotate(45 331.5 100.5)" stroke="#5997ef"/>
+                        <rect x="481" y="113" width="9" height="9" transform="rotate(45 485.5 117.5)" stroke="#5997ef"/>
+                      </g>
+                      <g stroke="#aeb5c0" stroke-width="1" opacity=".75">
+                        <path d="M236 83 L276 64 L314 74"/>
+                        <circle cx="236" cy="83" r="2" fill="#aeb5c0"/>
+                        <circle cx="314" cy="74" r="2" fill="#aeb5c0"/>
+                      </g>
+                    </svg>
+                    <span class="animation-demo-playhead"></span>
+                  </div>
+                  <div class="animation-demo-ruler"><span>0:00</span><span>0:10</span><span>0:20</span><span>0:30</span><span>0:40</span><span>0:50</span></div>
+                </div>
+                <div class="animation-demo-inspector">
+                  <div class="animation-demo-panel-title"><span>Value Curve</span><span>●</span></div>
+                  <div class="animation-demo-inspector-body">
+                    <div class="animation-demo-field"><span>Playing</span><span>On</span></div>
+                    <div class="animation-demo-field"><span>Duration</span><span>2.00 s</span></div>
+                    <div class="animation-demo-field"><span>Start Value</span><span>0.00</span></div>
+                    <div class="animation-demo-field"><span>End Value</span><span>1.00</span></div>
+                    <div class="animation-demo-field"><span>Shape Mode</span><span>Bezier</span></div>
+                    <div class="animation-demo-value-preview">
+                      <svg viewBox="0 0 150 50" preserveAspectRatio="none" aria-hidden="true">
+                        <path d="M5 43 C30 42, 35 8, 72 17 S111 45, 145 6" fill="none" stroke="#71aaff" stroke-width="2"/>
+                        <circle cx="5" cy="43" r="2.5" fill="#15171b" stroke="#71aaff"/>
+                        <circle cx="145" cy="6" r="2.5" fill="#15171b" stroke="#71aaff"/>
+                      </svg>
+                    </div>
+                    <div class="animation-demo-field"><span>Loop</span><span>Ping Pong</span></div>
+                    <div class="animation-demo-field"><span>Target</span><span>Post FX</span></div>
+                    <div class="animation-demo-range"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="meta">
+                <span class="pill">DopeSheetView</span>
+                <span class="pill">CurvesGraphView</span>
+                <span class="pill">TimeCompositeView</span>
+                <span class="pill">LaneClipEditorView</span>
+                <span class="pill">TimelineBarElement</span>
+                <span class="pill">TimelineMarkersElement</span>
+                <span class="pill">TimeRangeSliderElement</span>
+                <span class="pill">ValueCurve</span>
+                <span class="pill">ValueCurveSystem</span>
+              </div>
+              <pre>&lt;CurvesGraphView id="AnimationWindowCurvesPlaceholder" class="animationwindow-view-placeholder" /&gt;
+          &lt;TimelineBarElement id="AnimationWindowTimelineRuler" /&gt;
+          &lt;TimeRangeSliderElement id="AnimationWindowTimeRangeSlider" /&gt;</pre>
+              <p class="purpose">Curves support selectable keys, tangent editing, time/value zoom, channel colors, curve tools, stacked and normalized views, lattice operations, and range-aware playback. Value Curve components can use key curves, built-in easing, or cubic Bezier shapes and can drive transform, light intensity, or post-processing weight.</p>
+            </div>
+          </article>
+
+          <article class="card" id="modals">
+            <header>
+              <h3>Modals</h3>
+              <p class="purpose">Focused blocking workflows such as confirmations and project picking.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span class="demo-button">Cancel</span><span class="demo-button primary">Open</span></div>
+              <div class="meta"><span class="pill">Modal.css</span><span class="pill">cancel-button</span><span class="pill">open-button</span></div>
+              <pre>RequestSubtreeStyleAssetPath("UI/controls/Modal.css");</pre>
+              <p class="purpose">Keep header/footer control positions stable and initial focus predictable.</p>
+            </div>
+          </article>
+
+          <article class="card" id="docking">
+            <header>
+              <h3>Docking And Panels</h3>
+              <p class="purpose">Docked editor tools, tabs, split layouts, and panel inventory.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span class="demo-button">Scene View</span><span class="demo-button">Game View</span></div>
+              <div class="meta"><span class="pill">dockspace</span><span class="pill">DockablePanel</span><span class="pill">panel</span></div>
+              <pre>&lt;DockablePanel id="SceneView" type="SceneViewPanel" /&gt;</pre>
+              <p class="purpose">Panel roots should use <code>flex-grow: 1</code>, <code>min-width: 0</code>, and <code>min-height: 0</code>.</p>
+            </div>
+          </article>
+
+          <article class="card" id="inspector">
+            <header>
+              <h3>Inspector Sections</h3>
+              <p class="purpose">Reusable component/entity sections in the Inspector.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span style="color:#91c4ff">v</span><strong>Transform</strong><span class="mock-spacer"></span><span class="demo-toggle"></span></div>
+              <div class="meta"><span class="pill">InspectorSection</span><span class="pill">inspector-row</span><span class="pill">inspector-field</span></div>
+              <pre>section-&gt;GetContentRoot()-&gt;AddChild(std::move(row));</pre>
+              <p class="purpose">Avoid overwriting focused field subtrees during refresh.</p>
+            </div>
+          </article>
+
+          <article class="card" id="toolbars">
+            <header>
+              <h3>Toolbars</h3>
+              <p class="purpose">Global editor commands, playback, layout presets, and panel-local tools.</p>
+            </header>
+            <div class="card-body">
+              <div class="mini-demo"><span class="demo-icon"></span><span class="demo-icon active"></span><span class="demo-icon"></span><span class="mock-spacer"></span><span class="demo-icon"></span></div>
+              <div class="meta"><span class="pill">editor-top-toolbar</span><span class="pill">layout-button</span><span class="pill">toolbar-spacer</span></div>
+              <pre>&lt;Button class="small secondary icon-button play-icon" /&gt;</pre>
+              <p class="purpose">Toolbars are 40 px tall; center playback controls keep natural width.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="rules">
+        <div class="section-head">
+          <h2>Authoring Guidelines</h2>
+          <p>Rules for adding new editor UI without drifting away from the current system.</p>
+        </div>
+        <div class="rules-grid">
+          <article class="rule">
+            <h3>Layout</h3>
+            <ul>
+              <li>Use dense, predictable tool UI. Avoid decorative cards and oversized marketing-style composition.</li>
+              <li>Flexible roots and scroll hosts need <code>min-width: 0</code> and <code>min-height: 0</code>.</li>
+              <li>Stable controls need explicit dimensions or min/max constraints.</li>
+            </ul>
+          </article>
+          <article class="rule">
+            <h3>Styling</h3>
+            <ul>
+              <li>Prefer classes and tokens over inline style overrides.</li>
+              <li>Use <code>controls/</code> for reusable component CSS, <code>panels/</code> for panel CSS, and <code>theme/</code> for cross-editor styles.</li>
+              <li>Use <code>background-image-tint</code> for icon color states.</li>
+            </ul>
+          </article>
+          <article class="rule">
+            <h3>Behavior</h3>
+            <ul>
+              <li><code>UIManager::Update</code> owns input, focus, hover, dispatch, and layout.</li>
+              <li><code>UIManager::Render</code> is geometry-only.</li>
+              <li>Interactive edits preview while dragging and commit once when the gesture ends.</li>
+            </ul>
+          </article>
+          <article class="rule">
+            <h3>Naming</h3>
+            <ul>
+              <li>Reusable controls use <code>&lt;component&gt;</code>, <code>&lt;component&gt;-&lt;part&gt;</code>, and <code>&lt;component&gt;-&lt;state&gt;</code>.</li>
+              <li>Inspector classes use <code>inspector-*</code>.</li>
+              <li>Icon classes should end in <code>-icon</code> and map to shipped editor icons.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="checklist">
+        <div class="section-head">
+          <h2>New UI Checklist</h2>
+          <p>A compact review list before a new panel or control lands.</p>
+        </div>
+        <div class="rule">
+          <ul>
+            <li>Reuse an existing native control or editor helper where one exists.</li>
+            <li>Choose classes from the component catalog before adding new CSS.</li>
+            <li>Use tokens for shared colors, spacing, type, radii, and icon tint.</li>
+            <li>Ensure flexible roots and scroll areas have <code>min-width: 0</code> and <code>min-height: 0</code>.</li>
+            <li>Verify hover, active, focus, selected, disabled, empty, and drag/drop states where applicable.</li>
+            <li>Keep control dimensions stable across state changes.</li>
+            <li>Make data changes through editor edit APIs and preserve preview/commit semantics.</li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="footer">
+        Static reader for <a href="ui_component_library.md">ui_component_library.md</a>
+        and <a href="ui_guidelines.md">ui_guidelines.md</a>. When the Markdown catalog changes, update this HTML in the same commit.
+        Listed from <a href="../index.html">docs/index.html</a> (GitHub Pages publishes <code>docs/</code> via <code>docs-site.yml</code>).
+      </div>
+    </main>
+  </div>
+</body>
+</html>

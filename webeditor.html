@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <!-- Unlisted: reachable by direct link only. -->
+  <meta name="robots" content="noindex,nofollow">
+  <title>OpenEngine Web Editor</title>
+  <link rel="icon" href="/favicon.png">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+    #boot {
+      position: fixed; inset: 0; display: flex; flex-direction: column; gap: 12px;
+      align-items: center; justify-content: center; color: #9aa0a6;
+      font: 14px system-ui, sans-serif; background: #000;
+    }
+    #boot.fail {
+      gap: 16px; padding: 24px; overflow: auto; justify-content: flex-start;
+    }
+    @media (min-height: 640px) {
+      #boot.fail { justify-content: center; }
+    }
+    #bar { width: 260px; height: 4px; background: #222; border-radius: 2px; overflow: hidden; }
+    #fill { width: 0%; height: 100%; background: #4b8bf5; transition: width .15s; }
+    #bootlogo { width: 72px; height: 72px; margin-bottom: 6px; }
+    #boot.fail #msg { color: #e8eaed; max-width: 42rem; text-align: left; font-size: 16px; }
+    #boot .hint {
+      color: #9aa0a6; max-width: 42rem; text-align: left; font-size: 13px; line-height: 1.5;
+    }
+    #boot pre {
+      margin: 0; max-width: 42rem; width: 100%; box-sizing: border-box;
+      padding: 12px 14px; background: #141414; color: #c4c7cc;
+      border: 1px solid #2a2a2a; border-radius: 6px;
+      font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: pre; overflow: auto;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="boot">
+    <img id="bootlogo" src="/icons/editor/logo.png" alt="" draggable="false">
+    <div id="msg">Loading editor…</div>
+    <div id="bar"><div id="fill"></div></div>
+  </div>
+  <script>
+    // Field diagnostics: an uncaught error inside a promise (the emscripten
+    // mailbox pump runs proxied worker->main work that way) shows in DevTools
+    // as a collapsed row that is not always expandable. Print the full stack
+    // as plain console text so a user can copy it directly.
+    addEventListener("unhandledrejection", (e) => {
+      const r = e.reason;
+      console.error("UNHANDLED REJECTION:", r && r.message ? r.message : String(r),
+                    "\n" + (r && r.stack ? String(r.stack) : "(no stack)"));
+    });
+    addEventListener("error", (e) => {
+      console.error("UNCAUGHT:", e.message,
+                    "\n" + (e.error && e.error.stack ? String(e.error.stack) : "(no stack)"));
+    });
+  </script>
+  <script>
+    // The engine ships as gzip payloads (Cloudflare static assets cap files at
+    // 25 MiB; the raw wasm is ~86 MB) and is inflated here with
+    // DecompressionStream, then handed to the emscripten runtime via
+    // Module.wasmBinary / Module.getPreloadedPackage — no second fetch.
+    const kAssets = "/webeditor-assets/";
+    // Stamped by scripts/sync-webeditor.sh from the js+wasm+data bytes. A new
+    // payload cannot reuse the previous URL, so a normal visit cannot keep a
+    // cached wasm. The placeholder is what a copy that was never synced loads.
+    const kAssetFiles = {"wasm": ["WebEditor.wasm.gz"], "data": ["WebEditor.data.gz.part00", "WebEditor.data.gz.part01"]};
+    const kAssetRev = "a6372438b23c";
+    function assetUrl(name) {
+      return kAssets + name + "?v=" + encodeURIComponent(kAssetRev);
+    }
+    const boot = document.getElementById("boot");
+    const msg = document.getElementById("msg");
+    const fill = document.getElementById("fill");
+    const progress = { wasm: 0, data: 0 };
+    const kIsolationHeaders =
+`/webeditor
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+
+/webeditor-assets/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Resource-Policy: same-origin`;
+
+    function paint() {
+      fill.style.width = Math.round((progress.wasm + progress.data) / 2 * 100) + "%";
+    }
+    function failBoot(title, detail, snippet) {
+      document.getElementById("bar")?.remove();
+      boot.classList.add("fail");
+      msg.textContent = title;
+      if (detail) {
+        const p = document.createElement("div");
+        p.className = "hint";
+        p.textContent = detail;
+        boot.appendChild(p);
+      }
+      if (snippet) {
+        const pre = document.createElement("pre");
+        pre.textContent = snippet;
+        boot.appendChild(pre);
+      }
+      console.error(title, detail || "");
+    }
+    async function fetchGz(names, key) {
+      // Parts are contiguous slices of one gzip stream, not separate members.
+      const compressed = new ReadableStream({
+        async start(controller) {
+          try {
+            for (let index = 0; index < names.length; ++index) {
+              const name = names[index];
+              const resp = await fetch(assetUrl(name), { cache: "no-cache" });
+              if (!resp.ok) throw new Error(name + ": HTTP " + resp.status);
+              const total = Number(resp.headers.get("Content-Length")) || 0;
+              const reader = resp.body.getReader();
+              let seen = 0;
+              for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                seen += value.byteLength;
+                progress[key] = (index + (total ? Math.min(seen / total, 1) : 0)) / names.length;
+                paint();
+                controller.enqueue(value);
+              }
+              reader.releaseLock();
+            }
+            controller.close();
+          } catch (error) { controller.error(error); }
+        },
+      });
+      const buf = await new Response(compressed.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+      progress[key] = 1; paint();
+      return buf;
+    }
+    (async () => {
+      try {
+        if (!crossOriginIsolated) {
+          failBoot(
+            "This host is not cross-origin isolated.",
+            "The threaded editor needs SharedArrayBuffer, which the browser only grants when this document is served with COOP and COEP. There is no single-thread fallback — set these headers on the editor page and its wasm/js assets (Cloudflare Pages _headers shown).",
+            kIsolationHeaders
+          );
+          return;
+        }
+        if (!("DecompressionStream" in window))
+          throw new Error("this browser lacks DecompressionStream");
+        if (!("gpu" in navigator))
+          throw new Error("this browser has no WebGPU");
+        const [wasm, data] = await Promise.all([
+          fetchGz(kAssetFiles.wasm, "wasm"),
+          fetchGz(kAssetFiles.data, "data"),
+        ]);
+        msg.textContent = "Starting…";
+        window.Module = {
+          canvas: document.getElementById("canvas"),
+          // This runtime consumes instantiateWasm/getPreloadedPackage (its
+          // pruned Module API has no wasmBinary). Passing the module through
+          // onSuccess is what lets pthread workers receive it.
+          instantiateWasm: (imports, onSuccess) => {
+            WebAssembly.instantiate(wasm, imports)
+              .then((r) => onSuccess(r.instance, r.module))
+              .catch((e) => { msg.textContent = "wasm instantiation failed: " + e.message; });
+            return {};
+          },
+          getPreloadedPackage: () => data,
+          print: (t) => console.log(t),
+          printErr: (t) => console.error(t),
+          onRuntimeInitialized: () => document.getElementById("boot").remove(),
+        };
+        const s = document.createElement("script");
+        s.src = assetUrl("WebEditor.js");
+        s.onerror = () => { msg.textContent = "Failed to load WebEditor.js"; };
+        document.body.appendChild(s);
+      } catch (e) {
+        failBoot("Failed to load: " + e.message);
+        console.error(e);
+      }
+    })();
+  </script>
+</body>
+</html>

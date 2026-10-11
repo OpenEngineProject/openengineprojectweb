@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RenderGraph Quick Reference · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="rendergraph--quick-reference">RenderGraph — Quick Reference</h1>
+<p>The engine’s render graph is <strong>immediate-mode</strong>: the whole frame graph is declared fresh each
+frame into a bump arena, compiled in one sweep, executed, and reset. There is no retained pass
+state, no enable/disable/invalidate, no incremental compile — a pass that should not run this
+frame is simply not declared.</p>
+<p><strong>Authoritative sources</strong> (prefer these over any prose):</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>What</th><th>Where</th></tr></thead><tbody><tr><td>Public API (declare/import/execute)</td><td><code>Include/Rendering/Core/RenderGraph/RGFrame.h</code></td></tr><tr><td>Core IR (cull, schedule, barriers)</td><td><code>Include/Rendering/Core/RenderGraph/RGGraph.h</code></td></tr><tr><td>Pools, upload ring, rotation</td><td><code>RGResourcePool.h</code>, <code>RGTransientPool.h</code>, <code>RGUploadRing.h</code>, <code>RGRotatingImport.h</code></td></tr><tr><td>Design rationale + field comparison</td><td><code>Tools/ai/rendering/render-graph-redesign.html</code></td></tr><tr><td>Living usage examples</td><td><code>Engine/Tests/RenderServicesRG2PassTests.cpp</code>, <code>Engine/Source/Engine/Rendering/Pipeline/Nodes/</code></td></tr><tr><td>Architecture overview</td><td><code>Rendering_Architecture_Guide.html</code> (§The Render Graph, §Writing a Render Pass)</td></tr></tbody></table>
+<h2 id="the-rules-that-matter">The rules that matter</h2>
+<ul>
+<li><strong>Declare every access.</strong> Barriers, ordering, and culling derive from <code>Read</code>/<code>Write</code>/<code>Attach*</code>
+declarations. A bindless/descriptor-direct consumer still needs a declared <code>Read</code> — undeclared
+access means no edge and no barrier.</li>
+<li><strong><code>LoadOp::Load</code> is a read.</strong> Depth testing and blending consume prior contents; the Load-derived
+read edge is what keeps the producer alive. <code>Clear</code>/<code>DontCare</code> create no edge — a producer feeding
+a cleared attachment is correctly culled.</li>
+<li><strong>Recording order is hazard order.</strong> Declare producers before consumers within a frame
+(read-before-write derives WAR by design).</li>
+<li><strong>Imports are per-frame.</strong> <code>ImportPersistent*</code> = pool-owned with cross-frame layout carry;
+<code>ImportExternal*</code> = engine-owned, no write-back; <code>RGRotatingTexture/Buffer</code> = the only N-buffer
+rotation (history, CPU readback — readback rings need count ≥ framesInFlight + 1).</li>
+<li><strong>CPU per-frame data → <code>AllocUpload&#x3C;T>()</code>.</strong> One upload ring; there is no <code>perFrame</code> flag.</li>
+<li><strong>Consume-only passes need <code>PreventCulling()</code></strong> (readbacks, queries). Everything else survives by
+transitively feeding a sink (<code>MarkOutput</code> / present / export).</li>
+<li><strong>Frame-local ids die with their <code>RGFrame</code>.</strong> Never cache <code>RGTexture</code>/<code>RGBuffer</code> across frames
+without a frame-identity guard.</li>
+<li><strong>Queues</strong>: the production default collapses all logical queues onto one graphics submission
+(<code>kSingleQueueMap</code>); async compute is an explicit opt-in map, not a per-pass accident.</li>
+<li><strong>Execute lambdas capture by value</strong> — they run after declaration returns.</li>
+</ul>
+  </main>
+</body>
+</html>

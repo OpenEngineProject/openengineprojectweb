@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Physics Collision and Trigger Events · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="physics-collisiontrigger-events-how-to-use">Physics collision/trigger events (how to use)</h1>
+<p>This guide shows how gameplay code should consume physics collision/trigger events via ECS.</p>
+<h2 id="preferred-approach-entity-scoped-callbacks">Preferred approach (entity-scoped callbacks)</h2>
+<p>If you want “tell me when <strong>this sword</strong> hits something” (or “when <strong>this trigger</strong> is entered/exited”), use the entity-scoped callback router:</p>
+<ul>
+<li><code>PhysicsECS/PhysicsEntityEventCallbacks.h</code></li>
+<li><code>GameEngine::PhysicsECS::PhysicsEntityEventCallbacks</code></li>
+</ul>
+<p>This avoids iterating/buffering every collision each frame, and <strong>only enables backend event generation when something is subscribed</strong>.</p>
+<h3 id="example-sword-hit-detection-solid-contact-beginend">Example: sword hit detection (solid contact Begin/End)</h3>
+<p>Register per-entity callbacks (for example inside a gameplay system when the sword is spawned):</p>
+<pre><code class="language-cpp">using namespace GameEngine;
+using namespace GameEngine::PhysicsECS;
+
+ecs::EntityHandle swordEntity = /* ... */;
+
+// Called when the sword starts colliding with something solid.
+const auto beginId = PhysicsEntityEventCallbacks::SubscribeContactBegin(
+    swordEntity,
+    [&#x26;](const EntityContactEvent&#x26; e)
+    {
+        // e.self == swordEntity
+        // e.other is the entity we hit
+        // e.point / e.normal provide contact details
+    });
+
+// Called when the sword stops colliding with that object (separates).
+const auto endId = PhysicsEntityEventCallbacks::SubscribeContactEnd(
+    swordEntity,
+    [&#x26;](const EntityContactEvent&#x26; e)
+    {
+        // e.self == swordEntity
+        // e.other is the entity we separated from
+    });
+
+// Later, if the sword is destroyed:
+PhysicsEntityEventCallbacks::Unsubscribe(beginId);
+PhysicsEntityEventCallbacks::Unsubscribe(endId);
+</code></pre>
+<h3 id="example-sword-trigger-hitbox-enterexit">Example: sword trigger hitbox (Enter/Exit)</h3>
+<p>If your sword uses a trigger collider (sensor), subscribe to trigger events:</p>
+<pre><code class="language-cpp">using namespace GameEngine;
+using namespace GameEngine::PhysicsECS;
+
+ecs::EntityHandle swordHitboxEntity = /* ... */;
+
+PhysicsEntityEventCallbacks::SubscribeTriggerEnter(
+    swordHitboxEntity,
+    [&#x26;](const EntityTriggerEvent&#x26; e)
+    {
+        // e.self == swordHitboxEntity
+        // e.other is the entity that entered the trigger
+        // e.selfIsTrigger tells you whether self was the trigger body
+    });
+
+PhysicsEntityEventCallbacks::SubscribeTriggerExit(
+    swordHitboxEntity,
+    [&#x26;](const EntityTriggerEvent&#x26; e)
+    {
+        // e.other is the entity that exited the trigger
+    });
+</code></pre>
+<h2 id="the-data-model-ecs-mapping">The data model (ECS mapping)</h2>
+<ul>
+<li><code>PhysicsECS</code> reserves backend <code>BodySettings.userData</code> for the <strong>ECS entity id</strong>.</li>
+<li>The Physics backend emits events containing <code>userDataA/userDataB</code>, which PhysicsECS converts to <code>ecs::EntityHandle</code>.</li>
+</ul>
+<h2 id="buffered-events-optional-listen-to-everything">Buffered events (optional, “listen to everything”)</h2>
+<p>If you want to consume <strong>all</strong> contacts/triggers in a world (for analytics/debugging/global gameplay), you can opt into ECS buffers:</p>
+<ul>
+<li><code>GameEngine::components::PhysicsContactEventsBuffer</code></li>
+<li><code>GameEngine::components::PhysicsTriggerEventsBuffer</code></li>
+</ul>
+<p><code>PhysicsEventsSystem</code> routes physics callbacks into these buffers <strong>only if both components exist in the world</strong>.</p>
+<h3 id="reading-buffered-events-in-ecs-systems">Reading buffered events in ECS systems</h3>
+<h3 id="find-the-singleton-buffers">Find the singleton buffers</h3>
+<p>In a gameplay system you typically do:</p>
+<pre><code class="language-cpp">auto q = world.Query&#x3C;
+    ecs::Read&#x3C;GameEngine::components::PhysicsContactEventsBuffer>,
+    ecs::Read&#x3C;GameEngine::components::PhysicsTriggerEventsBuffer>>();
+
+q.Each([&#x26;](ecs::EntityHandle /*e*/,
+           const GameEngine::components::PhysicsContactEventsBuffer&#x26; contacts,
+           const GameEngine::components::PhysicsTriggerEventsBuffer&#x26; triggers)
+{
+    // iterate contacts.events[0..contacts.count)
+    // iterate triggers.events[0..triggers.count)
+});
+</code></pre>
+<p>Because these are singleton-style, you usually just use the first one encountered.</p>
+<h2 id="example-filtering-buffered-events-for-a-specific-entity">Example: filtering buffered events for a specific entity</h2>
+<p>Assume:</p>
+<ul>
+<li><code>ecs::EntityHandle swordEntity</code> identifies the sword.</li>
+<li>You want to detect when the sword begins contact with anything.</li>
+</ul>
+<pre><code class="language-cpp">for (uint32 i = 0; i &#x3C; contacts.count; ++i)
+{
+    const auto&#x26; ev = contacts.events[i];
+
+    if (ev.state != Physics::ContactState::Begin)
+        continue;
+
+    const bool swordIsA = (ev.entityA == swordEntity);
+    const bool swordIsB = (ev.entityB == swordEntity);
+    if (!swordIsA &#x26;&#x26; !swordIsB)
+        continue;
+
+    const ecs::EntityHandle other = swordIsA ? ev.entityB : ev.entityA;
+
+    // Example: apply damage by reading components on `other`:
+    // if (auto* hp = world.GetComponent&#x3C;components::Health>(other)) { ... }
+}
+</code></pre>
+<h3 id="triggers-for-sword-hitboxes-buffered">Triggers for sword hitboxes (buffered)</h3>
+<pre><code class="language-cpp">for (uint32 i = 0; i &#x3C; triggers.count; ++i)
+{
+    const auto&#x26; ev = triggers.events[i];
+    if (!ev.isEntering)
+        continue;
+
+    if (ev.trigger != swordEntity)
+        continue;
+
+    const ecs::EntityHandle hit = ev.other;
+    // apply hit logic...
+}
+</code></pre>
+<h2 id="example-rolling-tree-damages-anything-it-hits-entity-scoped">Example: rolling tree damages anything it hits (entity-scoped)</h2>
+<p>If a specific entity is “the damaging object” (a rolling tree, a boulder, a car), register a contact-begin callback for <strong>that entity</strong>:</p>
+<pre><code class="language-cpp">using namespace GameEngine;
+using namespace GameEngine::PhysicsECS;
+
+ecs::EntityHandle treeEntity = /* ... */;
+
+PhysicsEntityEventCallbacks::SubscribeContactBegin(
+    treeEntity,
+    [&#x26;](const EntityContactEvent&#x26; e)
+    {
+        // e.self == treeEntity
+        const ecs::EntityHandle target = e.other;
+
+        // Apply damage to target if it has health:
+        // if (auto* hp = world.GetComponent&#x3C;components::Health>(target))
+        //     hp->value -= damage;
+    });
+</code></pre>
+<h2 id="listen-to-every-collision-in-the-world">“Listen to every collision in the world”</h2>
+<p>This is supported and cheap <strong>only when enabled</strong>:</p>
+<ul>
+<li>If no listeners/buffers are active, the backend does not record events.</li>
+<li>If enabled, cost is proportional to the number of contacts/triggers that occur.</li>
+</ul>
+<p>In ECS, “listen to every collision” just means iterating the buffers without filtering.</p>
+<h2 id="notes--future-improvements">Notes / future improvements</h2>
+<ul>
+<li><strong>Impulse/strength</strong>: Jolt doesn’t provide the final impulse at <code>OnContactAdded</code>; we can add an impulse estimate or a post-solve pipeline later.</li>
+</ul>
+  </main>
+</body>
+</html>

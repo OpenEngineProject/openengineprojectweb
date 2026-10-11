@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Humanoid Retargeting Quickstart · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="humanoid-retargeting--quickstart">Humanoid Retargeting — Quickstart</h1>
+<p>Drop a Mixamo clip onto a custom character in five steps.</p>
+<p>This walks the auto-bootstrap path: the editor detects a clip-skeleton
+mismatch, auto-imports <code>HumanoidRig</code>s for both rigs, auto-creates a
+<code>RetargetMap</code>, attaches <code>HumanoidRetargeterComponent</code>, and shows a one-
+click confirmation banner. Hit Play; the character walks.</p>
+<hr>
+<h2 id="step-1--drop-the-character-into-the-project">Step 1 — Drop the character into the project</h2>
+<p>Copy your character FBX / glTF into <code>Assets/Models/</code> (project mount).
+Example: <code>Assets/Models/MyCharacter.glb</code>.</p>
+<p>The asset pipeline imports the mesh, skeleton, and bind pose. The first
+time the editor sees the file, <code>Animation::AutoImportHumanoidRig</code>
+runs:</p>
+<ol>
+<li>The bone-name regex matcher (<code>Animation::HumanoidNameMatcher</code>) maps
+each source-rig bone name onto a <code>HumanBone</code> canonical slot. Mixamo
+(<code>mixamorig:</code> prefix), Synty, MetaHuman, Maya, VRM, glTF — all covered.</li>
+<li>Body proportions (hip height, shoulder width, leg / arm length) are
+computed from world-rest positions.</li>
+<li>Canonical chains (LeftArm = Shoulder -> Hand, etc.) are derived.</li>
+<li>Per-bone retarget-pose rotations are baked from rest-pose deltas. Synty
+A-pose binds get non-identity rotations on shoulders / upper arms;
+Mixamo / MetaHuman T-pose binds get identity (no fix-up needed).</li>
+</ol>
+<p>The result lands at <code>Assets/Models/MyCharacter.humanoidrig.json</code>.</p>
+<p>If required-bone coverage drops below <code>kAutoImportCoverageThreshold</code>
+(0.8), the import fails and the editor prompts you to fix the mapping in
+<code>HumanoidRigInspector</code>. Otherwise: silent success.</p>
+<hr>
+<h2 id="step-2--drop-the-animation-clip">Step 2 — Drop the animation clip</h2>
+<p>Copy the Mixamo (or Synty, MetaHuman, glTF, VRM) clip into
+<code>Assets/Animations/</code>. Example:
+<code>Assets/Animations/Mixamo_Walk_Y.glb</code>.</p>
+<p>The clip’s source skeleton triggers a second <code>AutoImportHumanoidRig</code>
+pass — one rig per skeleton, even if many clips share a skeleton. The
+result lands at <code>Assets/Animations/Mixamo_Walk_Y.humanoidrig.json</code>.</p>
+<hr>
+<h2 id="step-3--place-the-character-in-a-scene">Step 3 — Place the character in a scene</h2>
+<p>Open or create a scene. Drop your character onto a transform entity. The
+entity now carries:</p>
+<ul>
+<li><code>Transform</code></li>
+<li><code>MeshRenderer</code> (with the character’s skin mesh)</li>
+<li><code>SkeletonRef</code> (target skeleton runtime)</li>
+</ul>
+<p>No <code>AnimatorRef</code> yet; the character holds rest pose.</p>
+<hr>
+<h2 id="step-4--assign-the-clip">Step 4 — Assign the clip</h2>
+<p>Drag <code>Mixamo_Walk_Y.glb</code> from the Asset browser onto the entity. The
+editor detects the skeleton mismatch
+(<code>clip.skeletonGUID != entity.SkeletonRef.runtimeId</code>) and runs the auto-
+bootstrap:</p>
+<pre><code>HumanoidRetargetBootstrap::TrySetupAutomatically(inputs, &#x26;record)
+</code></pre>
+<p>Behind the scenes:</p>
+<ol>
+<li>Resolves the source <code>HumanoidRig</code> (next to <code>Mixamo_Walk_Y.glb</code>).</li>
+<li>Resolves the target <code>HumanoidRig</code> (next to your character mesh).</li>
+<li>Looks for <code>Assets/Animations/Retargeting/&#x3C;Source>_to_&#x3C;Target>.retargetmap.json</code>.</li>
+<li>If absent, calls <code>Animation::AutoCreateRetargetMap</code> to synthesize one
+with default chain pairings (FK rotation OneToOne, translation None,
+IK off; op-stack empty, falls back to canonical order).</li>
+<li>Adds <code>Components::HumanoidRetargeterComponent</code> to the entity with
+<code>Map = &#x3C;map GUID></code>, <code>SourceClipIndex = &#x3C;clip store index></code>, defaults
+for the rest.</li>
+</ol>
+<p>The editor pops the <code>RetargetBootstrapBanner</code>:</p>
+<blockquote>
+<p>Clip ‘Mixamo_Walk_Y’ uses a different skeleton. Setting up
+retargeting via ‘Mixamo_Walk_Y_to_MyCharacter.retargetmap.json’.
+[Customize] [Dismiss] [Don’t show again for this folder]</p>
+</blockquote>
+<p>Click anywhere outside or “Dismiss” to accept; the component is already
+set up. “Don’t show again for this folder” silences the banner per-folder
+(stored in editor prefs via
+<code>RetargetBootstrapBannerPrefs</code>). “Customize” opens
+<code>RetargetMapInspector</code> for tweaking before commit.</p>
+<hr>
+<h2 id="step-5--hit-play">Step 5 — Hit Play</h2>
+<p>The character walks. Per-frame, <code>HumanoidRetargetSystem</code>:</p>
+<ol>
+<li>Drains hot-reload events at the top of <code>Update()</code> (so no character
+reads a torn pointer mid-frame).</li>
+<li>Iterates entities with <code>HumanoidRetargeterComponent</code>.</li>
+<li>Resolves the map and rigs (cached after first lookup).</li>
+<li>Samples the source clip at <code>ClipTimeSeconds</code> onto the source
+skeleton.</li>
+<li>Either runs the GPU pipeline (default) — <code>RetargetEncodePass</code> ->
+<code>RetargetFKPass</code> -> <code>RetargetTranslatePass</code> -> <code>RetargetWorldPosePass</code>
+-> <code>RetargetIKGoalPass</code> -> <code>RetargetIKSolvePass</code> ->
+<code>RetargetOpStackPass</code> -> <code>RetargetPoseToPalettePass</code> — writing skin
+matrices straight into <code>SkinPaletteAtlas</code>. The existing instanced
+rasterization path consumes the palette unchanged.</li>
+<li>Or runs the CPU fallback (<code>r.RetargetCPU=1</code>) and writes into
+<code>SkeletonRuntimeState::CompactSkinMatrices</code>;
+<code>SkinningUploadSystem</code> ships them to the atlas.</li>
+</ol>
+<p><code>ClipTimeSeconds</code> advances by <code>deltaTime * Speed</code>. If <code>Loop = true</code>,
+wraps at clip duration. If <code>Paused = true</code>, holds.</p>
+<hr>
+<h2 id="verifying-it-worked">Verifying it worked</h2>
+<p>If the character is in T-pose with arms splayed: the source rig’s
+retarget pose didn’t bake correctly. Check <code>HumanoidRigInspector</code> —
+shoulder / upper-arm rotations should be ~15-30 deg for Synty A-pose
+binds, identity for Mixamo / MetaHuman T-pose binds. Use the “Force bind
+= retarget pose” button if the source rig was authored canonically.</p>
+<p>If the feet slide: enable FootLock on the appropriate
+<code>ChainPairing.FootLock</code> in <code>RetargetMapInspector</code>. Default is off.</p>
+<p>If the character drifts off-screen: the source clip has hip translation;
+this is correct retargeting behavior. Use <code>Components::HumanoidRetargeter Component::Loop</code> + a Position component to handle world placement.</p>
+<p>If hot-reload regresses retargeting: edit the rig / map JSON and save.
+The watcher fires <code>RetargetAssetWatcher</code>’s reload callback;
+<code>HumanoidRetargetSystem::DrainHotReloadEvents</code> clears caches; next frame
+re-resolves. No editor restart needed.</p>
+<hr>
+<h2 id="power-user-path">Power-user path</h2>
+<p>Skip auto-bootstrap and add <code>HumanoidRetargeterComponent</code> manually:</p>
+<pre><code class="language-cpp">auto&#x26; retargeter = entity.AddComponent&#x3C;Components::HumanoidRetargeterComponent>();
+retargeter.Map = mapGuid;
+retargeter.SourceClipIndex = clipStoreIndex;
+retargeter.Enabled = true;
+retargeter.IKEnabled = true;
+retargeter.AutoBootstrap = false; // banner suppressed
+</code></pre>
+<p>Use this for:</p>
+<ul>
+<li>Custom op-stack ordering (combat rigs, special effects).</li>
+<li>Hand-edited retarget pose.</li>
+<li>Multiple sources through <code>AnimationGraphPlayer</code>.</li>
+<li>Programmatic spawning (crowd scenes, replays).</li>
+</ul>
+<p>For full custom anim graphs, drive a <code>RetargetNode</code> directly from your
+graph; see <a href="Reference.md"><code>Reference.md</code></a> for the API.</p>
+<hr>
+<h2 id="drop-in-a-vrm-avatar">Drop in a VRM avatar</h2>
+<p>VRM 1.0 and Khronos KHR_humanoid avatars carry their humanoid bone map
+in a glTF extension on disk. Drop one into <code>Assets/Models/</code>, e.g.
+<code>Assets/Models/AvatarSampleA.vrm</code>, and the auto-import flow probes
+three paths in order:</p>
+<ol>
+<li><strong>VRM 1.0</strong> (<code>extensions.VRMC_vrm</code>) — the bone map is read directly
+from <code>humanoid.humanBones</code> (object form, camelCase keys). Phase 10
+also captures <code>firstPerson</code>, <code>lookAt</code>, and expression clip names
+into a <code>VRM1Metadata</code> struct for downstream consumers (face,
+look-at, first-person culling). The retarget pipeline itself uses
+only the bone map.</li>
+<li><strong>VRM 0.x</strong> (legacy <code>VRM</code> extension name) — same bone-name list, but
+wire format is <code>humanBones[]</code> array of <code>{ bone, node }</code> records and
+the avatar faces -Z (VRM 1.0 faces +Z). The importer logs a warning,
+converts the array to the 1.0 object shape, and Y-axis-flips the
+source skeleton’s rest rotations on a working copy. The on-disk
+skeleton is not modified.</li>
+<li><strong>KHR_humanoid</strong> (<code>extensions.KHR_humanoid</code>) — same bone map shape
+as VRM 1.0; standalone Khronos-track extension. Used when you have
+non-VRM avatars that pre-declare humanoid bindings (e.g., bespoke
+pipeline output, future Khronos sample assets).</li>
+</ol>
+<p>Path 4 (the heuristic regex matcher from Step 1 above) is the fallback
+when none of the extensions are present (FBX assets, plain glTF
+exports without the extension). Editor log line tells you which path
+ran:</p>
+<pre><code>[Info] HumanoidRig auto-imported via VRM 1.0 (specVersion=1.0, legacyVRM0=0)
+[Info] HumanoidRig auto-imported via KHR_humanoid
+[Info] HumanoidRig auto-imported via heuristic name matcher
+</code></pre>
+<p>The output <code>HumanoidRig</code> is identical in shape regardless of which
+path produced it; downstream retarget evaluation doesn’t change.</p>
+<p>Real VRM 1.0 sample assets live at
+<a href="https://github.com/vrm-c/UniVRM-1_0/tree/master/Tests/Models">vrm-c/UniVRM-1_0</a>
+and the <a href="https://hub.vroid.com/">VRoid Hub</a> gallery (CC-BY licensed
+avatars). Engine-shipped tests use synthetic glTF JSON fixtures
+(no third-party asset dependency) — see
+<code>Engine/Modules/Animation/Tests/{KHRHumanoidImporter,VRM1Importer,AutoImportDispatch}Tests.cpp</code>.</p>
+<hr>
+<h2 id="same-skeleton-case">Same-skeleton case</h2>
+<p>If you drop a clip whose skeleton matches the entity’s target skeleton,
+no <code>HumanoidRetargeterComponent</code> is added. The existing <code>AnimationSystem</code>
+same-rig sample path runs zero-config. The component’s overhead is paid
+only when actual retargeting is needed.</p>
+<hr>
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead><tbody><tr><td>Auto-import didn’t run</td><td>Skeleton coverage &#x3C; 80% required bones</td><td>Open <code>HumanoidRigInspector</code>, fix red bone slots manually</td></tr><tr><td>Character T-poses with splayed arms</td><td>Synty A-pose source, retarget pose not baked</td><td>Verify shoulder / upper-arm <code>RetargetPoseRotation</code> are non-identity in <code>HumanoidRigInspector</code></td></tr><tr><td>Foot sliding</td><td>FootLock disabled</td><td>Enable <code>ChainPairing.FootLock.Enabled</code> in <code>RetargetMapInspector</code></td></tr><tr><td>Cloak / sword / hair doesn’t follow</td><td>No <code>AttachmentBone</code> declared, or wrong parent</td><td>Add via <code>HumanoidRigInspector</code> with parent canonical bone</td></tr><tr><td>Banner won’t go away</td><td>Auto-bootstrap re-fires every assign</td><td>Click “Don’t show again for this folder”; recorded per-folder via <code>RetargetBootstrapBannerPrefs</code></td></tr><tr><td>Clip plays once and stops</td><td><code>Loop = false</code></td><td>Toggle <code>Loop</code> on the component</td></tr><tr><td>Character locks at first frame</td><td><code>Enabled = false</code> or <code>Paused = true</code></td><td>Toggle on the component</td></tr></tbody></table>
+<hr>
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li><a href="Architecture.md"><code>Architecture.md</code></a> — full GPU residency table, SSBO
+layout, hot-reload chain.</li>
+<li><a href="Reference.md"><code>Reference.md</code></a> — every public type, function, asset.</li>
+<li><a href="MigrationNotes.md"><code>MigrationNotes.md</code></a> — coming from the old
+<code>HumanoidAvatar</code> path? Equivalences here.</li>
+<li><a href="HumanoidRetargeting.md"><code>HumanoidRetargeting.md</code></a> — high-level vision
+document.</li>
+<li><a href="HumanoidRetargetingPlan.md"><code>HumanoidRetargetingPlan.md</code></a> — full
+comprehensive plan (12 phases).</li>
+</ul>
+  </main>
+</body>
+</html>

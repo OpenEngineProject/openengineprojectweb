@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HDR Post-Processing User Guide · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="hdr-post-processing-user-guide">HDR Post-Processing User Guide</h1>
+<p>This guide covers how to use the HDR post-processing system in the Editor: setting up tonemapping, bloom, and exposure through PostProcessVolume components and the render pipeline inspector.</p>
+<hr>
+<h2 id="quick-start">Quick Start</h2>
+<ol>
+<li>Select any entity in the Hierarchy (or create a new empty entity)</li>
+<li>In the Inspector, click <strong>Add Component</strong> and choose <strong>PostProcessVolume</strong></li>
+<li>Adjust the settings:
+<ul>
+<li><strong>Exposure</strong>: controls scene brightness (1.0 = default, 2.0 = double brightness)</li>
+<li><strong>Bloom Threshold / Strength</strong>: controls glow on bright areas</li>
+<li><strong>Tonemap Mode</strong>: choose between ACES, Reinhard, AgX, Filmic, or Neutral</li>
+</ul>
+</li>
+</ol>
+<p>Changes take effect immediately in the viewport.</p>
+<hr>
+<h2 id="postprocessvolume-component">PostProcessVolume Component</h2>
+<p>The PostProcessVolume is an ECS component that controls how the final image looks. Add it to any entity in the scene.</p>
+<h3 id="properties">Properties</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Property</th><th>Default</th><th>Range</th><th>Description</th></tr></thead><tbody><tr><td><strong>Priority</strong></td><td>0</td><td>any int</td><td>Higher priority volumes override lower ones</td></tr><tr><td><strong>Weight</strong></td><td>1.0</td><td>0.0 - 1.0</td><td>Blend strength when overriding lower-priority volumes</td></tr><tr><td><strong>Exposure</strong></td><td>1.0</td><td>0.01+</td><td>Multiplier applied to the HDR image before tonemapping. Higher = brighter</td></tr><tr><td><strong>Bloom Threshold</strong></td><td>1.0</td><td>0.0+</td><td>Luminance level above which pixels contribute to bloom. Lower = more bloom</td></tr><tr><td><strong>Bloom Knee</strong></td><td>0.1</td><td>0.0 - 1.0</td><td>Softness of the bloom threshold transition</td></tr><tr><td><strong>Bloom Intensity</strong></td><td>1.0</td><td>0.0+</td><td>Brightness of the extracted bloom</td></tr><tr><td><strong>Bloom Strength</strong></td><td>1.0</td><td>0.0+</td><td>How much bloom is blended into the final image</td></tr><tr><td><strong>Tonemap Mode</strong></td><td>ACES</td><td>dropdown</td><td>Which tonemapping curve to use</td></tr><tr><td><strong>Dither Mode</strong></td><td>Bayer 8x8</td><td>dropdown</td><td>Dithering method to reduce color banding</td></tr></tbody></table>
+<h3 id="multiple-volumes">Multiple Volumes</h3>
+<p>You can have multiple PostProcessVolume entities in a scene. They are blended by Priority and Weight:</p>
+<ul>
+<li>Volumes are sorted by <strong>Priority</strong> (lowest first, highest last)</li>
+<li>Each volume blends into the accumulated result using its <strong>Weight</strong></li>
+<li>Float properties are linearly interpolated</li>
+<li>Enum properties (tonemap mode, dither mode) use the highest-priority volume’s value</li>
+</ul>
+<p><strong>Example</strong>: A “base” volume at priority 0 with ACES tonemapping, and a “cinematic” volume at priority 10 with AgX and lower exposure. When the cinematic volume is enabled, it overrides the base.</p>
+<hr>
+<h2 id="tonemap-modes">Tonemap Modes</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Mode</th><th>Best For</th><th>Character</th></tr></thead><tbody><tr><td><strong>ACES</strong></td><td>General purpose</td><td>Warm, filmic look with good contrast. Industry standard</td></tr><tr><td><strong>Reinhard</strong></td><td>Soft, natural look</td><td>Simple, preserves color ratios. Can look washed out</td></tr><tr><td><strong>AgX</strong></td><td>High contrast scenes</td><td>Excellent hue preservation. Similar to Blender’s default</td></tr><tr><td><strong>Filmic</strong></td><td>Cinematic look</td><td>Strong contrast, deep blacks. Uncharted 2 style</td></tr><tr><td><strong>Neutral</strong></td><td>Debugging</td><td>Simple clamp, no curve. Shows raw LDR values</td></tr></tbody></table>
+<hr>
+<h2 id="bloom-controls">Bloom Controls</h2>
+<p>Bloom adds a glow effect around bright areas of the image.</p>
+<h3 id="how-to-set-up-bloom">How to Set Up Bloom</h3>
+<ol>
+<li>Ensure a light source or emissive material creates HDR values > 1.0</li>
+<li>On the PostProcessVolume, set <strong>Bloom Threshold</strong> to control what’s “bright enough” to glow</li>
+<li>Adjust <strong>Bloom Strength</strong> to control the glow intensity</li>
+</ol>
+<h3 id="tips">Tips</h3>
+<ul>
+<li><strong>Threshold = 0.0</strong>: Everything blooms (artistic choice, can look dreamy)</li>
+<li><strong>Threshold = 1.0</strong>: Only super-bright pixels bloom (default, subtle)</li>
+<li><strong>Threshold = 2.0+</strong>: Only extremely bright areas bloom (realistic)</li>
+<li><strong>Knee</strong> controls the softness of the threshold edge. 0.0 = hard cutoff, 0.5 = very soft transition</li>
+<li><strong>Strength = 0.0</strong>: Bloom is off (the passes still run but contribute nothing)</li>
+</ul>
+<hr>
+<h2 id="render-pipeline-inspector">Render Pipeline Inspector</h2>
+<p>The post-processing passes are defined in the render pipeline asset (<code>ForwardPlus.rendergraph</code>). You can edit pass parameters directly:</p>
+<ol>
+<li>Select the <code>.rendergraph</code> asset in the Project panel</li>
+<li>In the Inspector, expand the FullscreenShader passes (BloomThreshold, BloomCombine, Tonemap)</li>
+<li>Edit the <strong>pushConstants</strong> section to change default values</li>
+</ol>
+<p>These defaults are the base values used when no PostProcessVolume exists in the scene. When a PostProcessVolume is present and the pass has <code>ppOverrides: true</code>, the volume’s values override the JSON defaults.</p>
+<h3 id="disabling-bloom">Disabling Bloom</h3>
+<p>To disable bloom entirely (saves GPU bandwidth):</p>
+<ol>
+<li>Open the <code>.rendergraph</code> asset</li>
+<li>Set the <code>BloomThreshold</code>, <code>BloomBlurH</code>, <code>BloomBlurV</code>, and <code>BloomCombine</code> passes to <code>enabled: false</code></li>
+<li>Change the Tonemap pass’s input from <code>"HDRCombined"</code> to <code>"View.Resolve"</code></li>
+</ol>
+<h3 id="disabling-tonemapping">Disabling Tonemapping</h3>
+<p>Set the Tonemap pass to <code>enabled: false</code>. The viewport will show raw HDR values clamped by the display, which will look washed out but can be useful for debugging.</p>
+<hr>
+<h2 id="debug-modes">Debug Modes</h2>
+<p>The tonemap shader supports debug modes via the <code>ditherMode</code> push constant:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>ditherMode</th><th>Effect</th></tr></thead><tbody><tr><td>0</td><td>Normal (Bayer 8x8 dithering)</td></tr><tr><td>1</td><td>Normal (Blue noise dithering)</td></tr><tr><td>97</td><td>Show tonemapped output without sRGB encoding or dithering</td></tr><tr><td>98</td><td>Show raw HDR values (no tonemapping, exposure only)</td></tr><tr><td>99</td><td>Solid magenta (shader execution test)</td></tr></tbody></table>
+<p>To use a debug mode, set the <code>ditherMode</code> push constant in the Tonemap pass via the Render Pipeline Inspector.</p>
+<hr>
+<h2 id="custom-render-pipelines">Custom Render Pipelines</h2>
+<p>The post-processing system works with any <code>.rendergraph</code> pipeline, not just ForwardPlus. To add post-processing to a custom pipeline:</p>
+<ol>
+<li>
+<p>Declare the bloom texture resources in the <code>resources</code> section:</p>
+<pre><code class="language-json">"BloomA": {
+  "kind": "Texture",
+  "scope": "PerView",
+  "format": "R16G16B16A16_FLOAT",
+  "extent": { "scale": [0.5, 0.5] }
+}
+</code></pre>
+</li>
+<li>
+<p>Add FullscreenShader passes in the <code>passes</code> array after your world render pass</p>
+</li>
+<li>
+<p>Set <code>"ppOverrides": true</code> on passes that should respond to PostProcessVolume</p>
+</li>
+<li>
+<p>Reference the shader packages by name (e.g., <code>"Shaders/tonemap.shaderpkg"</code>)</p>
+</li>
+</ol>
+<p>The system is fully modular. You can use just tonemapping without bloom, or add additional custom fullscreen passes.</p>
+<hr>
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead><tbody><tr><td>Scene looks too dark</td><td>Exposure too low</td><td>Increase PostProcessVolume Exposure</td></tr><tr><td>Scene looks washed out</td><td>No tonemapping</td><td>Ensure Tonemap pass is enabled</td></tr><tr><td>No bloom visible</td><td>Threshold too high or no bright pixels</td><td>Lower Bloom Threshold or increase light intensity</td></tr><tr><td>Bloom everywhere</td><td>Threshold too low</td><td>Increase Bloom Threshold</td></tr><tr><td>Banding artifacts</td><td>Dithering disabled or insufficient</td><td>Ensure ditherMode is 0 (Bayer) or 1 (Blue noise)</td></tr><tr><td>Colors look wrong</td><td>Wrong tonemap mode</td><td>Try ACES (default) or check outEncoding matches swapchain format</td></tr></tbody></table>
+  </main>
+</body>
+</html>

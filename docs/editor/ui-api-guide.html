@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UI API Guide · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="ui-api-guide">UI API Guide</h1>
+<p>This guide covers how to build UI with XML/CSS and C++, how to register controls,
+and how to update styles and properties at runtime.</p>
+<h2 id="quick-start">Quick start</h2>
+<pre><code class="language-cpp">#include "UI/UIManager.h"
+
+GameEngine::UIManager ui(device, assetManager);
+ui.LoadLayoutFromFile("Assets/UI/MyLayout.xml");
+ui.AttachStyleFromFile("Assets/UI/MyTheme.css");
+
+while (running) {
+    ui.Update(dt);
+    ui.Render(renderGraph);
+}
+</code></pre>
+<p>Manual root setup:</p>
+<pre><code class="language-cpp">auto root = std::make_unique&#x3C;GameEngine::UIElement>("UIElement");
+root->SetId("Root");
+root->AddClass("root");
+ui.SetRoot(std::move(root));
+</code></pre>
+<h2 id="loading-layouts-and-styles">Loading layouts and styles</h2>
+<ul>
+<li>File-based: <code>LoadLayoutFromFile</code>, <code>AttachStyleFromFile</code> (and async variants).</li>
+<li>Asset-based: <code>LoadLayoutFromAsset</code>, <code>AttachStyleFromAsset</code>.</li>
+<li>Subtree styles: <code>AttachStyleToSubtreeFromAsset</code> / <code>AttachStyleToSubtreeFromAssetPath</code>.</li>
+</ul>
+<h2 id="authoring-layouts-xml">Authoring layouts (XML)</h2>
+<p>Tag names map to registered controls (see <code>UI/Controls</code> and <code>UI/Registration</code>).</p>
+<p>Common attributes:</p>
+<ul>
+<li><code>id</code> (or <code>name</code>) -> <code>UIElement::SetId</code></li>
+<li><code>class</code> -> <code>AddClass</code> for each token</li>
+<li><code>style</code> -> parsed once into inline <code>StyleOverrides</code> (inline CSS declarations)</li>
+</ul>
+<p>Example:</p>
+<pre><code class="language-xml">&#x3C;UIElement id="SettingsPanel" class="panel">
+  &#x3C;Label text="Audio" />
+  &#x3C;Checkbox id="MusicEnabled" checked="true" text="Music" />
+  &#x3C;Slider id="Volume" min="0" max="1" value="0.8" step="0.01" />
+&#x3C;/UIElement>
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li>Controls that register <code>Text()</code> bindings can use inner text as well as a <code>text</code>
+attribute (e.g. <code>&#x3C;Button>Ok&#x3C;/Button></code>).</li>
+<li>Unknown tags fall back to <code>UIElement</code> with a warning.</li>
+</ul>
+<h2 id="styling-css">Styling (CSS)</h2>
+<p>Selectors supported include tag, <code>.class</code>, <code>#id</code>, <code>[attr=value]</code>, and pseudo-classes
+like <code>:hover</code>, <code>:active</code>, <code>:focus</code>, and <code>:checked</code>.</p>
+<p>Attribute selectors read authored attributes stored on the element. <code>id</code> and <code>name</code>
+are special-cased to <code>UIElement::GetId()</code>. Attribute names are normalized to
+lowercase and matched case-insensitively; prefer lowercase attribute names in
+XML and CSS for consistency.</p>
+<p>Custom properties (<code>--vars</code>) can be read from code:</p>
+<pre><code class="language-cpp">const auto* style = el.GetResolvedStyle();
+if (style) {
+    float pad = style->GetCustomNumber("--pad", 0.0f);
+    uint32_t accent = style->GetCustomColor("--accent", 0xFF000000u);
+}
+</code></pre>
+<p>For hot paths, pre-hash with <code>StringId</code>:</p>
+<pre><code class="language-cpp">using namespace GameEngine;
+constexpr StringId kPad = "--pad"_sid;
+float pad = style->GetCustomNumber(kPad, 0.0f);
+</code></pre>
+<h2 id="programmatic-ui-construction">Programmatic UI construction</h2>
+<pre><code class="language-cpp">auto root = std::make_unique&#x3C;UIElement>("UIElement");
+auto label = std::make_unique&#x3C;Label>();
+label->SetText("Hello");
+label->AddClass("title");
+root->AddChild(std::move(label));
+
+ui.SetRoot(std::move(root));
+</code></pre>
+<p>If you add children after the root is attached to a <code>UIManager</code>, ownership
+propagates automatically.</p>
+<h2 id="style-overrides-code">Style overrides (code)</h2>
+<p>Use <code>StyleOverrides</code> for programmatic overrides. Typed property keys provide
+compile-time safety; dirty flags are tracked automatically via the
+<code>StyleProp&#x3C;T, StyleImpact></code> template.</p>
+<pre><code class="language-cpp">el.Overrides()
+  .Set(Style::Width, StyleLength::Px(200.0f))
+  .Set(Style::Height, StyleLength::Px(40.0f))
+  .Set(Style::BackgroundColor, 0xFF202020u);
+el.Overrides().SetCustomNumber("--pad"_sid, 4.0f);
+</code></pre>
+<p>Reading back an override:</p>
+<pre><code class="language-cpp">if (auto bg = el.Overrides().Get(Style::BackgroundColor))
+    LOG_INFO("Background color: 0x{:08X}", *bg);
+</code></pre>
+<p>Reset a property to inherit from CSS:</p>
+<pre><code class="language-cpp">el.Overrides().Reset(Style::BackgroundColor);
+</code></pre>
+<p>For live background textures, use <code>Styles()</code>:</p>
+<pre><code class="language-cpp">el.Styles()
+  .SetBackgroundTexture(rgTextureRef)
+  .SetBackgroundSizeCover()
+  .SetBackgroundTint(0xFFFFFFFF);
+</code></pre>
+<h2 id="events">Events</h2>
+<p>Event IDs are hashed <code>StringId</code> values (see <code>UI/UIEvents.h</code>).</p>
+<pre><code class="language-cpp">using namespace GameEngine;
+
+auto token = el.RegisterEventHandler(kEventMouseDown, [](UIEvent&#x26; e) {
+    e.Stop();
+});
+
+el.RegisterEventHandler(HashEvent("My.CustomEvent"), [](UIEvent&#x26; e) {
+    // handle custom event
+});
+</code></pre>
+<h2 id="creating-new-controls">Creating new controls</h2>
+<ol>
+<li>Subclass <code>UIElement</code> (optionally implement <code>ITextMeasurable</code>).</li>
+<li>Override <code>OnGeneratePrimitives</code> to emit custom SDF primitives.</li>
+<li>Override <code>OnPostLayout</code> if you need layout-dependent setup.</li>
+<li>Register the control and its attributes with <code>UIRegistration</code>.</li>
+</ol>
+<p>Example:</p>
+<pre><code class="language-cpp">class Badge : public UIElement {
+public:
+    Badge() : UIElement("Badge") {}
+    void SetText(const std::string&#x26; text) { m_text = text; MarkDirty(VisualDirty); }
+
+    void OnGeneratePrimitives(UI::PrimitiveEmitContext&#x26; ctx,
+                              const ResolvedStyle&#x26; style,
+                              float x, float y, float w, float h) override;
+
+private:
+    std::string m_text;
+};
+</code></pre>
+<p>Registration and attribute binding:</p>
+<pre><code class="language-cpp">using namespace GameEngine::UIRegistration;
+
+static auto s_reg_badge = Register&#x3C;Badge>("Badge")
+    .Text(&#x26;Badge::SetText)
+    .Attr("text", &#x26;Badge::SetText)
+    .TagAlias("badge");
+</code></pre>
+<p>For custom attribute types, specialize <code>Parser&#x3C;T></code>:</p>
+<pre><code class="language-cpp">template&#x3C;>
+struct Parser&#x3C;Badge::Mode> {
+    static Badge::Mode Parse(std::string_view s) { /* ... */ }
+};
+</code></pre>
+<h2 id="modifying-attributes-and-properties">Modifying attributes and properties</h2>
+<p>Prefer dedicated APIs:</p>
+<ul>
+<li><code>SetId</code>, <code>AddClass</code>, <code>RemoveClass</code></li>
+<li><code>SetEnabled</code>, <code>SetFocusable</code>, <code>SetTabIndex</code></li>
+<li><code>Overrides()</code> for style changes (typed <code>StyleOverrides</code> API)</li>
+</ul>
+<p>Inline <code>style</code> and arbitrary attributes are intended for XML/CSS parsing rather
+than runtime code.</p>
+  </main>
+</body>
+</html>

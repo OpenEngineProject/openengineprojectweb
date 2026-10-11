@@ -1,0 +1,822 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build and Test Guide · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="build-and-test-guide">Build and Test Guide</h1>
+<p>This guide provides detailed instructions for building the engine, running tests, and working with the various samples and examples.</p>
+<h2 id="quick-setup-new-users">Quick Setup (New Users)</h2>
+<p><strong>IMPORTANT</strong>: If you’re setting up the repository for the first time, you need to create the C# project files that were previously excluded from git.</p>
+<h3 id="prerequisites">Prerequisites</h3>
+<ul>
+<li>
+<p><strong>Windows 10/11</strong> (primary platform)</p>
+<ul>
+<li>Visual Studio 2019/2022 with C++ development tools</li>
+</ul>
+</li>
+<li>
+<p><strong>Linux/macOS</strong> (C++ builds)</p>
+<ul>
+<li>Recent Clang or GCC (Linux) / Xcode or Clang (macOS)</li>
+<li>CMake 3.20+ (command-line)</li>
+</ul>
+</li>
+<li>
+<p><strong>.NET 9.0 SDK</strong> - <a href="https://dotnet.microsoft.com/download/dotnet/9.0">Download here</a></p>
+<ul>
+<li>Required for C# scripting on Windows</li>
+<li>Optional on Linux/macOS (C++-only builds; scripting currently Windows‑first)</li>
+</ul>
+</li>
+<li>
+<p><strong>Git</strong></p>
+</li>
+<li>
+<p><strong>Vulkan shader compiler (<code>glslc</code>)</strong></p>
+<ul>
+<li>
+<p>Automatically provided via vcpkg <code>shaderc</code> when using the built-in CMake/vcpkg setup</p>
+</li>
+<li>
+<p>Alternatively from the Vulkan SDK or your system package manager</p>
+<pre><code>### Linux-specific Vulkan &#x26; windowing requirements
+
+On Linux, Vulkan and GLFW rely on system windowing libraries that are not provided by vcpkg. Make sure you have:
+
+- A working Vulkan driver + loader from your distro (Mesa or vendor packages, e.g. `mesa-vulkan-drivers`, `vulkan-tools`, `vulkan-validationlayers` on Ubuntu).
+- X11 development libraries (default in this repo):
+  - `sudo apt install libxinerama-dev libxcursor-dev xorg-dev libglu1-mesa-dev pkg-config`
+  - These match the requirements printed by the vcpkg `glfw3` port.
+- Our `vcpkg.json` enables `vulkan-loader[wayland,xcb,xlib]` so the Vulkan loader exports XCB/Xlib/Wayland surface extensions needed by `glfwCreateWindowSurface` on Linux. This is installed automatically via manifest mode when you configure the project with CMake; you do not need to run a separate `vcpkg install` command.
+
+If you run a pure Wayland session (no XWayland), you may also want to enable the `glfw3[wayland]` feature in `vcpkg.json` and ensure the corresponding Wayland dev packages are installed; see the GLFW documentation for details.
+
+### macOS Vulkan / MoltenVK notes
+
+On macOS, vcpkg's `vulkan` port installs Vulkan headers and the cross-platform loader, but it does **not** provide MoltenVK itself.
+To enable the Vulkan backend on macOS:
+
+- Install the official Vulkan SDK for macOS (which bundles MoltenVK and a Vulkan loader).
+- If `VULKAN_SDK` is not set, CMake will attempt to auto-detect the newest SDK under common install locations (like `~/VulkanSDK/&#x3C;version>/macOS`). If it still can’t find it, set `VULKAN_SDK` in your shell before running CMake.
+
+#### Temporary MoltenVK PR build for `VK_KHR_draw_indirect_count`
+
+Until official MoltenVK releases include [KhronosGroup/MoltenVK#2740](https://github.com/KhronosGroup/MoltenVK/pull/2740), macOS users who need GPU-driven counted indirect draws should build that PR locally and point CMake at the resulting dylib and ICD manifest:
+
+```bash
+# Pick a persistent location outside the GameEngine build directory.
+export MOLTENVK_PR_DIR="$HOME/src/MoltenVK-pr2740"
+
+git clone --recursive https://github.com/KhronosGroup/MoltenVK.git "$MOLTENVK_PR_DIR"
+cd "$MOLTENVK_PR_DIR"
+git fetch origin pull/2740/head:pr-2740
+git switch pr-2740
+./fetchDependencies --macos
+make macos MVK_CONFIG_LOG_LEVEL=1
+```
+
+Then configure GameEngine with the PR build outputs:
+
+```bash
+cmake -S . -B build-macos \
+  -DGE_MOLTENVK_SOURCE_LIB="$MOLTENVK_PR_DIR/Package/Release/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib" \
+  -DGE_MOLTENVK_SOURCE_ICD="$MOLTENVK_PR_DIR/Package/Release/MoltenVK/dynamic/dylib/macOS/MoltenVK_icd.json"
+```
+
+For Xcode builds, use the same variables with the Xcode generator or your existing `build-xcode` directory:
+
+```bash
+cmake -S . -B build-xcode -G Xcode \
+  -DGE_MOLTENVK_SOURCE_LIB="$MOLTENVK_PR_DIR/Package/Release/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib" \
+  -DGE_MOLTENVK_SOURCE_ICD="$MOLTENVK_PR_DIR/Package/Release/MoltenVK/dynamic/dylib/macOS/MoltenVK_icd.json"
+```
+
+The Editor post-build step stages that dylib into `Editor.app/Contents/Resources/vulkan/icd.d/` and writes an ICD JSON that points at the bundled copy. At runtime, the macOS Editor forces both `VK_ICD_FILENAMES` and `VK_DRIVER_FILES` to the bundled ICD so a globally installed Vulkan SDK cannot accidentally override the PR build.
+
+If the SDK is missing, CMake's Vulkan detection will typically fail and the build will log a warning like:
+
+- `Vulkan not found - Vulkan backend disabled`
+
+This is acceptable for initial C++ engine/Editor bring-up on macOS; you can still build and run the Editor without Vulkan, it will just skip Vulkan-backed rendering paths.
+</code></pre>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="scripts-setup-assets--scriptassemblies">Scripts Setup (Assets + ScriptAssemblies)</h3>
+<p>The engine no longer uses a root <code>Scripts/</code> project or a <code>setup-scripts</code> helper. Instead:</p>
+<ul>
+<li>C# scripts live under <code>Assets/</code> (for example: <code>Assets/Scripts/*.cs</code>).</li>
+<li>The engine/editor automatically generates a <code>GameEngine.Scripts.csproj</code> into:
+<ul>
+<li><code>build/bin/&#x3C;Config>/ScriptAssemblies/GameEngine.Scripts.csproj</code></li>
+</ul>
+</li>
+<li>Building the engine or editor will also build <code>GameEngine.Scripts.dll</code> into:
+<ul>
+<li><code>build/bin/&#x3C;Config>/ScriptAssemblies/GameEngine.Scripts.dll</code></li>
+</ul>
+</li>
+</ul>
+<p>This means there is <strong>no manual setup step</strong> for scripts anymore:</p>
+<ol>
+<li>Place your C# files in <code>Assets/</code>.</li>
+<li>Configure and build the C++ project as described below.</li>
+<li>The ScriptAssemblies pipeline will emit <code>GameEngine.Scripts.dll</code> automatically.</li>
+</ol>
+<blockquote>
+<p><strong>Note:</strong> Older docs and examples may still mention a <code>Scripts/</code> folder and <code>setup-scripts.ps1/.sh</code>. Those are now fully removed and should be treated as historical only.</p>
+</blockquote>
+<h2 id="building-the-engine">Building the Engine</h2>
+<h3 id="prerequisites-verification">Prerequisites Verification</h3>
+<p>Before building, verify you have all prerequisites:</p>
+<pre><code class="language-bash"># Check .NET SDK
+dotnet --version
+# Should show 8.0.x or later
+
+# Check CMake
+cmake --version
+# Should show 3.20 or later
+
+# Check Visual Studio
+# Open Visual Studio Installer and verify C++ workload is installed
+</code></pre>
+<h3 id="build-process">Build Process</h3>
+<h4 id="1-initial-setup-all-platforms">1. Initial Setup (all platforms)</h4>
+<pre><code class="language-bash"># Clone and navigate to the repository
+git clone https://github.com/Lunarsong/GameEngine.git
+cd GameEngine
+</code></pre>
+<h4 id="2-generate-build-files-windows">2. Generate Build Files (Windows)</h4>
+<pre><code class="language-bash"># For Visual Studio 2022 (recommended)
+cmake -B build -G "Visual Studio 17 2022" -A x64
+
+# For Visual Studio 2019
+cmake -B build -G "Visual Studio 16 2019" -A x64
+
+# For other generators, see: cmake --help
+</code></pre>
+<h4 id="2b-generate-build-files-linuxmacos-c-only">2b. Generate Build Files (Linux/macOS, C++ only)</h4>
+<p>On Linux/macOS, you can build the C++ engine, examples, and tests with scripting disabled. For macOS, there is also a scripting + Editor flow described in the dedicated section below.</p>
+<pre><code class="language-bash"># Ninja (recommended)
+cmake -S . -B build \
+  -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DBUILD_EXAMPLES=ON \
+  -DBUILD_TESTING=ON \
+  -DENABLE_SCRIPTING=OFF
+
+# Non-Ninja users (Unix Makefiles)
+cmake -S . -B build \
+  -G "Unix Makefiles" \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DBUILD_EXAMPLES=ON \
+  -DBUILD_TESTING=ON \
+  -DENABLE_SCRIPTING=OFF
+
+		# macOS users who prefer Xcode
+		cmake -S . -B build -G Xcode -DENABLE_SCRIPTING=OFF
+		```
+
+		### Troubleshooting: Vulkan surface creation on Linux
+
+	If the Editor or examples log messages like:
+
+	- `Failed to create window surface! Error: -7`
+	- `Editor: Failed to create window surface (main window)`
+
+	this usually means the Vulkan loader does not expose any Linux WSI surface
+	extensions (e.g. `VK_KHR_xcb_surface`, `VK_KHR_xlib_surface`, `VK_KHR_wayland_surface`)
+	or they are not enabled on the Vulkan instance.
+
+	To fix:
+
+	1. Configure the project with CMake so vcpkg installs dependencies from `vcpkg.json`
+	   (this will install `vulkan-loader[wayland,xcb,xlib]` automatically on Linux).
+	2. Install the X11 development packages listed in the Linux prerequisites above.
+	3. If you run a pure Wayland session (no XWayland), consider enabling the
+	   `glfw3[wayland]` feature in `vcpkg.json` and installing the required Wayland
+	   development packages.
+
+	Reconfigure with CMake and rebuild the `Editor` target after adjusting packages.
+
+	For a streamlined Linux build, you can also use the helper script:
+
+```bash
+chmod +x Tools/Scripts/build-linux.sh
+./Tools/Scripts/build-linux.sh
+</code></pre>
+<h4 id="2c-linux-build-via-docker-from-windows">2c. Linux Build via Docker (from Windows)</h4>
+<p>If you don’t have a native Linux environment, you can run a Linux build inside a Docker container from Windows. This uses a separate build directory so it will not disturb your existing Windows CMake configuration.</p>
+<p><strong>Prerequisites:</strong></p>
+<ul>
+<li>Docker Desktop installed and running</li>
+<li>The repository checked out on your Windows machine</li>
+</ul>
+<p>From the repository root in <strong>PowerShell</strong>:</p>
+<pre><code class="language-powershell">.\Tools\Scripts\run-linux-build.ps1
+</code></pre>
+<p>What this does:</p>
+<ul>
+<li>Builds a Linux dev Docker image using <code>Dockerfile.linux-dev</code></li>
+<li>Mounts your checkout into the container at <code>/src</code></li>
+<li>Configures a Ninja build in <code>build-linux-docker</code> with:
+<ul>
+<li><code>-DCMAKE_BUILD_TYPE=Debug</code></li>
+<li><code>-DBUILD_EXAMPLES=ON</code></li>
+<li><code>-DBUILD_TESTING=ON</code></li>
+<li><code>-DENABLE_SCRIPTING=OFF</code> (current Linux state; scripting will be enabled in later roadmap phases)</li>
+</ul>
+</li>
+<li>Builds the <code>Editor</code> target inside the container</li>
+</ul>
+<p>As we implement Phases 0-2 of <code>docs/CrossPlatformScriptingRoadmap.md</code>, this Docker setup will also be the place where we run the cross-platform CoreCLR/scripting tests on Linux from Windows.</p>
+<h4 id="3-build-c-engine">3. Build C++ Engine</h4>
+<pre><code class="language-bash"># Windows multi-config generators (Visual Studio)
+cmake --build build --config Debug
+cmake --build build --config Release
+
+# Single-config generators (Ninja, Unix Makefiles, etc.)
+cmake --build build -- -j$(nproc)   # Linux
+cmake --build build -- -j$(sysctl -n hw.ncpu)   # macOS
+</code></pre>
+<h3 id="build-outputs">Build Outputs</h3>
+<p>After a successful Windows build with Visual Studio, you’ll have:</p>
+<pre><code>build/&#x3C;preset>/
+├── bin/
+│   └── Debug/
+│       ├── Apps/
+│       │   └── Editor/
+│       │       └── Editor.exe          # Editor
+│       └── Tests/                     # Test executables (when enabled)
+└── lib/
+    └── Debug/
+        └── Engine.lib              # Engine library
+</code></pre>
+<p>On Linux/macOS, the exact binary names and configuration subfolders depend on the generator:</p>
+<ul>
+<li>Single-config (Ninja/Unix Makefiles): typically <code>build/bin/Editor</code>, <code>build/bin/RenderingWindowPBR_RG_Demo</code>, etc.</li>
+<li>Multi-config (Xcode): similar layout to Visual Studio under <code>build/&#x3C;preset>/bin/Debug</code> / <code>build/&#x3C;preset>/bin/Release</code>.</li>
+</ul>
+<h2 id="running-tests">Running Tests</h2>
+<h3 id="integration-tests">Integration Tests</h3>
+<p>The main executable includes comprehensive integration tests:</p>
+<pre><code class="language-bash">cd build
+.\bin\Debug\GameEngine.exe
+</code></pre>
+<p><strong>What the tests do</strong>:</p>
+<ol>
+<li>
+<p><strong>Asset System Test</strong></p>
+<ul>
+<li>Discovers assets in <code>Assets/</code> directory</li>
+<li>Tests GUID assignment and metadata generation</li>
+<li>Loads texture assets</li>
+<li>Verifies asset registry functionality</li>
+</ul>
+</li>
+<li>
+<p><strong>Script System Test</strong></p>
+<ul>
+<li>Initializes CoreCLR host</li>
+<li>Tests C# script compilation framework</li>
+<li>Attempts C# method calling (currently debugging)</li>
+<li>Verifies .NET integration</li>
+</ul>
+</li>
+<li>
+<p><strong>Hot-Reloading Test</strong></p>
+<ul>
+<li>Creates a test C# script dynamically</li>
+<li>Monitors file changes with Windows ReadDirectoryChangesW</li>
+<li>Modifies the script after 5 seconds</li>
+<li>Demonstrates real-time change detection</li>
+</ul>
+</li>
+<li>
+<p><strong>C++ to C# Interop Test</strong></p>
+<ul>
+<li>Tests 6 registered engine functions</li>
+<li>Verifies P/Invoke interface</li>
+<li>Demonstrates bidirectional communication</li>
+</ul>
+</li>
+</ol>
+<h3 id="expected-test-output">Expected Test Output</h3>
+<pre><code>[INFO] === Running Engine Integration Tests ===
+[INFO] === Testing Asset System ===
+[INFO] Discovered 3 assets:
+[INFO]   - README (Unknown): Assets\README.md
+[INFO]   - test_texture (Texture): Assets\test_texture.png
+[INFO]   - test_texture (Unknown): Assets\test_texture.txt
+[INFO] Successfully loaded texture asset!
+[INFO] Texture dimensions: 2x2
+[INFO] === Asset System Test Complete ===
+
+[INFO] === Testing Script System ===
+[INFO] CoreCLR host is initialized
+[INFO] Assembly loaded successfully!
+[INFO] === Script System Test Complete ===
+
+[INFO] === Testing Hot-Reloading System ===
+[INFO] Creating initial test script...
+[DEBUG] Windows file change detected: Scripts\HotReloadTest.cs (1)
+[INFO] Hot-reload test initialized. Script will be modified after 5 seconds.
+[INFO] === Hot-Reloading Test Setup Complete ===
+
+# ... 60 FPS main loop for 15 seconds ...
+
+[INFO] === Hot-Reload Test: Modifying Script ===
+[DEBUG] Windows file change detected: Scripts\HotReloadTest.cs (1)
+[INFO] Test run complete, exiting...
+</code></pre>
+<h2 id="macos-c-engine-editor-and-scripting">macOS: C++ Engine, Editor, and Scripting</h2>
+<p>This section describes how to build and run the engine + Editor with C# scripting on macOS.</p>
+<h3 id="prerequisites-macos-specific">Prerequisites (macOS-specific)</h3>
+<p>In addition to the general prerequisites above, macOS users should have:</p>
+<ul>
+<li>
+<p><strong>Xcode command-line tools / Clang</strong></p>
+<ul>
+<li>Install via: <code>xcode-select --install</code></li>
+</ul>
+</li>
+<li>
+<p><strong>CMake 3.20+</strong> (command-line)</p>
+</li>
+<li>
+<p><strong>.NET 9.0 SDK for macOS</strong></p>
+<ul>
+<li>
+<p>Download from <a href="https://dotnet.microsoft.com/download/dotnet/9.0">https://dotnet.microsoft.com/download/dotnet/9.0</a></p>
+</li>
+<li>
+<p>Verify:</p>
+<pre><code class="language-bash">dotnet --info
+</code></pre>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>(Optional but recommended) Vulkan SDK for macOS (MoltenVK)</strong></p>
+<ul>
+<li>
+<p>vcpkg installs Vulkan headers and the cross-platform loader via the <code>vulkan</code> port. Validation layers are picked up at runtime from the installed Vulkan SDK (registered via OS config); install the SDK if you want validation messages.</p>
+</li>
+<li>
+<p>It does <strong>not</strong> install MoltenVK itself on macOS.</p>
+</li>
+<li>
+<p>To enable the Vulkan backend on macOS:</p>
+<ul>
+<li>Install the official Vulkan SDK for macOS (which bundles MoltenVK and a Vulkan loader).</li>
+<li>If <code>VULKAN_SDK</code> is not set, CMake will attempt to auto-detect the newest SDK under common install locations (like <code>~/VulkanSDK/&#x3C;version>/macOS</code>). If it still can’t find it, set <code>VULKAN_SDK</code> in your shell (the SDK installer usually does this for you).</li>
+</ul>
+</li>
+<li>
+<p>For <code>VK_KHR_draw_indirect_count</code> before official MoltenVK support lands, build <a href="https://github.com/KhronosGroup/MoltenVK/pull/2740">KhronosGroup/MoltenVK#2740</a> locally and pass the resulting artifacts to CMake:</p>
+<pre><code class="language-bash">export MOLTENVK_PR_DIR="$HOME/src/MoltenVK-pr2740"
+
+git clone --recursive https://github.com/KhronosGroup/MoltenVK.git "$MOLTENVK_PR_DIR"
+cd "$MOLTENVK_PR_DIR"
+git fetch origin pull/2740/head:pr-2740
+git switch pr-2740
+./fetchDependencies --macos
+make macos MVK_CONFIG_LOG_LEVEL=1
+
+cd /path/to/GameEngine
+cmake -S . -B build-macos \
+  -DGE_MOLTENVK_SOURCE_LIB="$MOLTENVK_PR_DIR/Package/Release/MoltenVK/dynamic/dylib/macOS/libMoltenVK.dylib" \
+  -DGE_MOLTENVK_SOURCE_ICD="$MOLTENVK_PR_DIR/Package/Release/MoltenVK/dynamic/dylib/macOS/MoltenVK_icd.json"
+</code></pre>
+<p>The Editor bundle stages that dylib and forces both <code>VK_ICD_FILENAMES</code> and <code>VK_DRIVER_FILES</code> to the bundled ICD at runtime, so the global Vulkan SDK cannot replace the PR build.</p>
+</li>
+<li>
+<p>If the SDK is missing, CMake’s Vulkan detection will typically fail and the build will log a warning like:</p>
+<ul>
+<li><code>Vulkan not found - Vulkan backend disabled</code></li>
+</ul>
+<p>This is acceptable for initial C++ engine/Editor + scripting bring-up on macOS; you can still build and run the Editor, it will just skip Vulkan-backed rendering paths.</p>
+</li>
+</ul>
+</li>
+</ul>
+<p>All other third-party C/C++ dependencies (GLFW, shaderc, VMA, etc.) are handled automatically by CMake + vcpkg when you configure the project.</p>
+<h3 id="step-1-configure-a-macos-build-with-scripting-enabled">Step 1: Configure a macOS build with scripting enabled</h3>
+<p>From the repository root on macOS:</p>
+<pre><code class="language-bash">CONFIG=Debug
+
+# Ninja (recommended)
+cmake -S . -B build-macos \
+  -G Ninja \
+  -DCMAKE_BUILD_TYPE="${CONFIG}" \
+  -DENABLE_SCRIPTING=ON \
+  -DBUILD_TESTING=ON
+
+# Non-Ninja users (Unix Makefiles)
+cmake -S . -B build-macos \
+  -G "Unix Makefiles" \
+  -DCMAKE_BUILD_TYPE="${CONFIG}" \
+  -DENABLE_SCRIPTING=ON \
+  -DBUILD_TESTING=ON
+</code></pre>
+<p>This will:</p>
+<ul>
+<li>Clone + bootstrap vcpkg (under <code>cmake/dependencies/vcpkg</code>) if needed.</li>
+<li>Install manifest dependencies for the appropriate <code>*-osx</code> triplet (e.g. <code>x64-osx</code>, <code>arm64-osx</code>).</li>
+<li>Configure the engine and scripting modules with CoreCLR hosting enabled.</li>
+</ul>
+<h3 id="step-2-run-macos-scripting-smoke-tests">Step 2: Run macOS scripting smoke tests</h3>
+<p>To validate CoreCLR hosting and the compile server on macOS, use the helper script:</p>
+<pre><code class="language-bash">chmod +x Tools/Scripts/run-macos-scripting-smoke-tests.sh
+
+./Tools/Scripts/run-macos-scripting-smoke-tests.sh
+</code></pre>
+<p>This script will:</p>
+<ul>
+<li>
+<p>Re-configure (or reuse) <code>build-macos</code> with <code>ENABLE_SCRIPTING=ON</code> and <code>BUILD_TESTING=ON</code>.</p>
+</li>
+<li>
+<p>Build the <code>EngineCoreClrSmokeTests</code> and <code>EngineCompileServerSmokeTests</code> targets.</p>
+</li>
+<li>
+<p>Run the corresponding ctest entries via:</p>
+<pre><code class="language-bash">ctest --test-dir build-macos -C Debug \
+  -R "Engine(CoreClr|CompileServer)SmokeTests" --output-on-failure
+</code></pre>
+</li>
+</ul>
+<p>If tests fail, check the console output and ctest logs under <code>build-macos/Testing</code> and include them when reporting issues.</p>
+<h3 id="step-3-build-the-editor-with-scripting-enabled">Step 3: Build the Editor with scripting enabled</h3>
+<p>Once scripting smoke tests are passing (or at least configured), build the Editor in the same macOS build tree:</p>
+<pre><code class="language-bash">cmake --build build-macos --config Debug \
+  --target Editor -- -j"$(sysctl -n hw.ncpu)"
+</code></pre>
+<p>On macOS, this typically produces:</p>
+<ul>
+<li><code>build-macos/bin/Debug/Editor</code></li>
+</ul>
+<p>(For other configurations, replace <code>Debug</code> with <code>Release</code>, etc.)</p>
+<h3 id="troubleshooting-macos">Troubleshooting (macOS)</h3>
+<h4 id="vulkan-surface-creation-failed-to-create-window-surface-error--7">Vulkan surface creation (<code>Failed to create window surface! Error: -7</code>)</h4>
+<p>If the Editor (or any Vulkan windowed example) logs:</p>
+<ul>
+<li><code>Failed to create window surface! Error: -7</code></li>
+<li><code>Editor: Failed to create window surface (main window)</code></li>
+</ul>
+<p>this usually means the Vulkan instance is missing a macOS WSI surface extension
+(<code>VK_EXT_metal_surface</code> or the legacy <code>VK_MVK_macos_surface</code>), or GLFW could not
+use a Vulkan loader to create a window surface.</p>
+<p>To fix:</p>
+<ul>
+<li>Ensure the <strong>Vulkan SDK for macOS</strong> is installed (it bundles MoltenVK).</li>
+<li>Ensure <code>VULKAN_SDK</code> is set in the shell you run CMake/builds from.</li>
+<li>If you’re using an older GLFW (&#x3C; 3.4), update it: GLFW 3.4+ supports <code>glfwInitVulkanLoader</code>,
+which helps GLFW use non-standard Vulkan loader locations (like vcpkg install trees).</li>
+</ul>
+<h4 id="compileserver-socket-path-too-long--compile-server-cant-connect">CompileServer socket path too long / compile server can’t connect</h4>
+<p>If you see logs like:</p>
+<ul>
+<li><code>[PipeTransport] Socket path too long: '...'</code></li>
+<li><code>[CompileServerClient] Timeout waiting for CompileServerHost to accept connections</code></li>
+</ul>
+<p>ensure the compile-server Unix socket directory is short enough for macOS.
+You can override it explicitly:</p>
+<pre><code class="language-bash">export GE_PIPE_PATH=/tmp/gameengine-compile-server
+</code></pre>
+<h3 id="step-4-run-the-macos-editor-iol--hotreload-harness">Step 4: Run the macOS Editor IoL + HotReload harness</h3>
+<p>To exercise InitializeOnLoad and hot-reload behavior in the Editor on macOS, use the dedicated test harness:</p>
+<pre><code class="language-bash">chmod +x Tools/Scripts/run-macos-editor-hotreload-iol-test.sh
+
+./Tools/Scripts/run-macos-editor-hotreload-iol-test.sh
+</code></pre>
+<p>This script will:</p>
+<ul>
+<li>Verify that <code>build-macos/bin/Debug/Editor</code> exists and is executable.</li>
+<li>Create/update <code>build-macos/bin/Debug/Assets/TestInit.cs</code> with a simple <code>[InitializeOnLoad]</code> C# script.</li>
+<li>Set <code>GE_HOTRELOAD_IOL_TRACE_FILE</code> and <code>GE_HOTRELOAD_VERBOSE</code> to capture hot-reload traces.</li>
+<li>Launch the Editor with a log file under <code>Logs/Editor-macOS-IoL-HotReload.log</code>.</li>
+<li>Wait for an initial <code>InitializeOnLoad Boot() called v1</code> marker.</li>
+<li>Modify <code>TestInit.cs</code> to a <code>v2</code> version and wait for <code>InitializeOnLoad Boot() called v2</code> to confirm hot reload.</li>
+</ul>
+<p>On success, you should see:</p>
+<ul>
+<li>
+<p><code>Logs/Editor-macOS-IoL-HotReload.log</code> containing Editor logs.</p>
+</li>
+<li>
+<p><code>Logs/Editor-macOS-IoL-HotReload-ioltrace.log</code> containing at least two lines:</p>
+<ul>
+<li><code>InitializeOnLoad Boot() called v1 ...</code></li>
+<li><code>InitializeOnLoad Boot() called v2 ...</code></li>
+</ul>
+</li>
+</ul>
+<p>If the script times out or exits early, inspect both log files and report:</p>
+<ul>
+<li>The full terminal output from the script.</li>
+<li>The contents of the two log files under <code>Logs/</code>.</li>
+<li>Any CMake configuration or build errors from <code>build-macos</code>.</li>
+</ul>
+<h3 id="performance-metrics">Performance Metrics</h3>
+<p>During the test run, monitor these metrics:</p>
+<ul>
+<li><strong>Frame Rate</strong>: Should maintain stable 60 FPS</li>
+<li><strong>File Detection</strong>: Sub-millisecond change detection</li>
+<li><strong>Memory Usage</strong>: Clean startup and shutdown</li>
+<li><strong>Asset Loading</strong>: Fast asset discovery and loading</li>
+</ul>
+<h2 id="running-examples">Running Examples</h2>
+<h3 id="new-amazing-example-games-recommended">NEW: Amazing Example Games (Recommended!)</h3>
+<p>We now have 4 incredible example games that showcase the engine’s full capabilities:</p>
+<h4 id="option-1-space-shooter-actionarcade">Option 1: Space Shooter (Action/Arcade)</h4>
+<pre><code class="language-bash"># Copy Space Shooter to Scripts directory
+copy Examples\SpaceShooter\SpaceShooter.cs Scripts\
+
+# Build the scripts
+cd Scripts
+dotnet build --configuration Debug
+cd ..
+
+# Run the engine
+cd build
+.\bin\Debug\GameEngine.exe
+</code></pre>
+<p><strong>Features</strong>: Player movement, enemy spawning, bullet physics, collision detection, scoring, wave progression</p>
+<h4 id="option-2-comprehensive-game-demo-all-games">Option 2: Comprehensive Game Demo (All Games!)</h4>
+<pre><code class="language-bash"># Copy all example games to Scripts directory
+copy Examples\GameDemo.cs Scripts\
+copy Examples\SpaceShooter\SpaceShooter.cs Scripts\
+copy Examples\Platformer\Platformer.cs Scripts\
+copy Examples\RPG\RPGGame.cs Scripts\
+
+# Build the scripts
+cd Scripts
+dotnet build --configuration Debug
+cd ..
+
+# Run the engine
+cd build
+.\bin\Debug\GameEngine.exe
+</code></pre>
+<p><strong>Features</strong>: Automatic game switching every 30 seconds, showcases all engine capabilities</p>
+<h4 id="option-3-platformer-game">Option 3: Platformer Game</h4>
+<pre><code class="language-bash">copy Examples\Platformer\Platformer.cs Scripts\
+cd Scripts
+dotnet build --configuration Debug
+cd ..\build
+.\bin\Debug\GameEngine.exe
+</code></pre>
+<p><strong>Features</strong>: Physics simulation, gravity, jumping, platform collision, collectibles</p>
+<h4 id="option-4-rpg-game">Option 4: RPG Game</h4>
+<pre><code class="language-bash">copy Examples\RPG\RPGGame.cs Scripts\
+cd Scripts
+dotnet build --configuration Debug
+cd ..\build
+.\bin\Debug\GameEngine.exe
+</code></pre>
+<p><strong>Features</strong>: Character stats, inventory, quest system, NPC interactions, turn-based combat</p>
+<h3 id="basic-game-example-legacy">Basic Game Example (Legacy)</h3>
+<p>The <code>Examples/BasicGame/</code> directory contains a complete game example.</p>
+<h4 id="setup">Setup</h4>
+<pre><code class="language-bash"># Copy example files to Scripts directory
+copy Examples\BasicGame\*.cs Scripts\
+
+# Build the scripts
+cd Scripts
+dotnet build --configuration Debug
+cd ..
+
+# Run the engine
+cd build
+.\bin\Debug\GameEngine.exe
+</code></pre>
+<h4 id="what-youll-see">What You’ll See</h4>
+<p>The Basic Game example demonstrates:</p>
+<ul>
+<li><strong>Player</strong> class with movement and health</li>
+<li><strong>Enemy</strong> AI with pathfinding toward player</li>
+<li><strong>GameManager</strong> coordinating game state</li>
+<li><strong>Combat system</strong> with damage and health</li>
+<li><strong>Win/lose conditions</strong></li>
+</ul>
+<h4 id="example-output">Example Output</h4>
+<pre><code>[INFO] === Basic Game Example Initializing ===
+[INFO] Player created at position (0, 0)
+[INFO] Enemy 'Enemy_0' spawned at (0, 0)
+[INFO] Enemy 'Enemy_1' spawned at (10, 5)
+[INFO] Enemy 'Enemy_2' spawned at (20, 10)
+[INFO] Spawned 3 enemies
+[INFO] Basic Game initialized successfully!
+
+# During gameplay:
+[INFO] Enemy_0 attacks for 15 damage!
+[INFO] Player took 15 damage. Health: 85
+[INFO] Enemy_0 took 25 damage. Health: 25
+[INFO] Enemy_0 was defeated!
+[INFO] Enemy defeated! Score: 100
+</code></pre>
+<h3 id="scripting-demo-example">Scripting Demo Example</h3>
+<p>The <code>Examples/ScriptingDemo/</code> directory shows C# scripting features.</p>
+<h4 id="setup-1">Setup</h4>
+<pre><code class="language-bash"># Copy scripting demo files
+copy Examples\ScriptingDemo\*.cs Scripts\
+
+# Build and run
+cd Scripts
+dotnet build --configuration Debug
+cd ..\build
+.\bin\Debug\GameEngine.exe
+</code></pre>
+<h4 id="features-demonstrated">Features Demonstrated</h4>
+<ol>
+<li>
+<p><strong>Inter-Script Communication</strong></p>
+<ul>
+<li><code>GameLogic.cs</code> calls methods from <code>MathUtilities.cs</code></li>
+<li>Demonstrates static method calling between scripts</li>
+</ul>
+</li>
+<li>
+<p><strong>C++ to C# Interop</strong></p>
+<ul>
+<li><code>NativeInterop.cs</code> calls engine functions</li>
+<li>Shows how to access engine features from C#</li>
+</ul>
+</li>
+<li>
+<p><strong>Engine Integration</strong></p>
+<ul>
+<li>Logging from C# to engine console</li>
+<li>Asset count and loading from C#</li>
+<li>Math operations using engine functions</li>
+</ul>
+</li>
+</ol>
+<h2 id="development-workflow">Development Workflow</h2>
+<h3 id="typical-development-session">Typical Development Session</h3>
+<ol>
+<li>
+<p><strong>Start with clean build</strong>:</p>
+<pre><code class="language-bash">cd Scripts
+dotnet build --configuration Debug
+cd ..\build
+cmake --build . --config Debug
+</code></pre>
+</li>
+<li>
+<p><strong>Run and test</strong>:</p>
+<pre><code class="language-bash">.\bin\Debug\GameEngine.exe
+</code></pre>
+</li>
+<li>
+<p><strong>Make changes to C# scripts</strong>:</p>
+<ul>
+<li>Edit files in <code>Scripts/</code> directory</li>
+<li>Hot-reloading will detect changes automatically</li>
+</ul>
+</li>
+<li>
+<p><strong>For C++ changes</strong>:</p>
+<pre><code class="language-bash">cmake --build . --config Debug
+</code></pre>
+</li>
+<li>
+<p><strong>Test again</strong>:</p>
+<pre><code class="language-bash">.\bin\Debug\GameEngine.exe
+</code></pre>
+</li>
+</ol>
+<h3 id="hot-reloading-workflow">Hot-Reloading Workflow</h3>
+<ol>
+<li><strong>Run the engine</strong></li>
+<li><strong>Keep it running</strong></li>
+<li><strong>Edit C# scripts</strong> in <code>Scripts/</code> directory</li>
+<li><strong>Save the file</strong></li>
+<li><strong>Watch console</strong> for change detection messages</li>
+<li><strong>See changes</strong> reflected immediately (when C# method calling is fixed)</li>
+</ol>
+<h3 id="adding-new-assets">Adding New Assets</h3>
+<ol>
+<li><strong>Add files</strong> to <code>Assets/</code> directory</li>
+<li><strong>Run the engine</strong> - assets are discovered automatically</li>
+<li><strong>Check console</strong> for asset registration messages</li>
+<li><strong>Use assets</strong> in C# scripts via <code>NativeInterop.LoadAsset()</code></li>
+</ol>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="build-issues">Build Issues</h3>
+<p><strong>“CMake Error: Could not find .NET hosting library”</strong></p>
+<ul>
+<li>Install .NET 9.0 SDK</li>
+<li>Restart command prompt to refresh PATH</li>
+</ul>
+<p><strong>“MSBuild Error: Project file not found”</strong></p>
+<ul>
+<li>Make sure you’re in the <code>build</code> directory</li>
+<li>Re-run <code>cmake ..</code> to regenerate build files</li>
+</ul>
+<p><strong>“C# compilation failed”</strong></p>
+<ul>
+<li>Check that .NET 9.0 SDK is installed: <code>dotnet --version</code></li>
+<li>Verify you’re in the <code>Scripts</code> directory when running <code>dotnet build</code></li>
+</ul>
+<h3 id="runtime-issues">Runtime Issues</h3>
+<p><strong>“CoreCLR initialization failed”</strong></p>
+<ul>
+<li>Build C# scripts first: <code>dotnet build Scripts/</code></li>
+<li>Check that <code>Scripts/bin/Debug/net9.0/</code> directory exists</li>
+</ul>
+<p><strong>“Assembly not found”</strong></p>
+<ul>
+<li>Ensure C# scripts are built successfully</li>
+<li>Check for compilation errors in <code>dotnet build</code> output</li>
+</ul>
+<p><strong>“No assets found”</strong></p>
+<ul>
+<li>Add some files to the <code>Assets/</code> directory</li>
+<li>Check that the <code>Assets/</code> directory exists</li>
+</ul>
+<h3 id="performance-issues">Performance Issues</h3>
+<p><strong>Low frame rate</strong></p>
+<ul>
+<li>Check for Debug vs Release build</li>
+<li>Monitor CPU usage in Task Manager</li>
+<li>Look for error messages in console</li>
+</ul>
+<p><strong>File changes not detected</strong></p>
+<ul>
+<li>Verify you’re editing files in the correct directory</li>
+<li>Check console for file watcher initialization messages</li>
+<li>Ensure Windows file watching is enabled</li>
+</ul>
+<h2 id="performance-benchmarks">Performance Benchmarks</h2>
+<h3 id="expected-performance">Expected Performance</h3>
+<ul>
+<li><strong>Frame Rate</strong>: 60 FPS stable</li>
+<li><strong>File Change Detection</strong>: &#x3C;1ms</li>
+<li><strong>Asset Discovery</strong>: &#x3C;10ms for typical projects</li>
+<li><strong>Engine Startup</strong>: &#x3C;200ms</li>
+<li><strong>Memory Usage</strong>: &#x3C;100MB for basic projects</li>
+</ul>
+<h3 id="monitoring-performance">Monitoring Performance</h3>
+<p>Watch the console output for:</p>
+<pre><code>[DEBUG] Frame: 60, Time: 1.00s, FPS: 60.0
+[DEBUG] Windows file change detected: Scripts\test.cs (1)
+[INFO] Asset Registry initialized with X assets
+</code></pre>
+<h2 id="advanced-usage">Advanced Usage</h2>
+<h3 id="custom-build-configurations">Custom Build Configurations</h3>
+<p>Create custom CMake configurations:</p>
+<pre><code class="language-bash"># Custom configuration
+cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo -G "Visual Studio 17 2022" -A x64
+</code></pre>
+<h3 id="batch-building">Batch Building</h3>
+<p>Use the provided batch files:</p>
+<pre><code class="language-bash"># Windows batch file
+build.bat
+
+# PowerShell script
+.\build.ps1
+</code></pre>
+<h3 id="continuous-integration">Continuous Integration</h3>
+<p>For automated builds:</p>
+<pre><code class="language-bash"># CI-friendly build
+cmake .. -G "Visual Studio 17 2022" -A x64
+cd Scripts &#x26;&#x26; dotnet build --configuration Release &#x26;&#x26; cd ..
+cmake --build . --config Release --parallel
+</code></pre>
+<hr>
+<p><strong>This guide should get you building and testing successfully!</strong></p>
+  </main>
+</body>
+</html>
