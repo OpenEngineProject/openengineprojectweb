@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hot Reload Best Practices · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="hot-reload-and-scripting-best-practices">Hot Reload and Scripting Best Practices</h1>
+<p>This guide summarizes the recommended usage patterns for GameEngine hot reload and the IncrementalCompiler to maximize iteration speed and stability.</p>
+<h2 id="public-export-shape-for-fast-invocation">Public export shape for fast invocation</h2>
+<ul>
+<li>Exports are public static int methods with no parameters.</li>
+<li>Keep names stable. Prefer fully qualified names (Namespace.Type.Method) when querying.</li>
+<li>Use HotReloadHelper facades:
+<ul>
+<li>TryQuery(string name, out ulong token, ulong domain = 0)</li>
+<li>TryInvoke(ulong token, ulong domain = 0)</li>
+</ul>
+</li>
+<li>Return ScriptingOpResult.Ok (0) on success; use negative codes from ScriptingOpResult for errors.</li>
+</ul>
+<h2 id="token-lifecycle-and-domains">Token lifecycle and domains</h2>
+<ul>
+<li>Tokens are stable within a domain for a given export; they may become invalid after swaps.</li>
+<li>After SwapPreloadedContext or LoadCompiledAssembly, re-query tokens.</li>
+<li>Domain 0 means “current domain”. HotReloadManager maintains a positive domain id per loaded context.</li>
+</ul>
+<h2 id="queryinvoke-performance">Query/Invoke performance</h2>
+<ul>
+<li>QueryExportInDomain uses a prebuilt index (full name and simple name) for O(1) lookup after load/swap.</li>
+<li>Try to query by full name when possible; simple names are supported but first-match wins.</li>
+<li>Cache tokens on the caller side; invoke by token on the hot path.</li>
+</ul>
+<h2 id="assembly-loading-and-swapping">Assembly loading and swapping</h2>
+<ul>
+<li>For fastest swaps:
+<ol>
+<li>PreloadAssemblyContext(byte[] asm, byte[]? pdb)</li>
+<li>SwapPreloadedContext()</li>
+</ol>
+</li>
+<li>Preloading does all heavy work (context creation, load) off the main thread; swap is atomic and very fast.</li>
+<li>Loading by file path is supported, but stream/bytes loading avoids file locks.</li>
+</ul>
+<h2 id="incrementalcompiler-tips">IncrementalCompiler tips</h2>
+<ul>
+<li>Prefer CompileIncremental for small changes; falls back to CompileFull when needed.</li>
+<li>The compiler caches:
+<ul>
+<li>SyntaxTrees per file</li>
+<li>Quick fingerprints (length + last write time) to skip unchanged files</li>
+<li>Metadata references with a ReferencesKey fingerprint</li>
+<li>Fast result cache (bounded + TTL) for no-op iterations</li>
+</ul>
+</li>
+<li>No-op runs (no effective changes) are served from fast cache or re-emitted from the base compilation.</li>
+<li>If you see frequent full rebuilds, check that ProjectPath remains stable and changes are small in count.</li>
+</ul>
+<h2 id="environment-flags">Environment flags</h2>
+<ul>
+<li>GE_HOTRELOAD_VERBOSE=1 enables info-level logs for HRM and IncrementalCompiler.
+<ul>
+<li>Default is quiet; warnings/errors still print.</li>
+</ul>
+</li>
+<li>GE_HRM_PATH can be used by tests/tools to locate the built HRM assembly.</li>
+</ul>
+<h2 id="error-handling">Error handling</h2>
+<ul>
+<li>Methods return int codes from ScriptingOpResult; 0 is success.</li>
+<li>Common failure codes include NotInitialized(-4), NotFound(-3), InvalidArg(-2), LoadFailed(-100), ValidationFailed(-101), DomainInvalid(-200), TokenInvalid(-201), FileNotFound(-204).</li>
+</ul>
+<h2 id="testing-patterns">Testing patterns</h2>
+<ul>
+<li>Use HotReloadHelper in tests to reduce reflection and boilerplate.</li>
+<li>Micro-benchmarks are marked [Explicit] to avoid running in CI:
+<ul>
+<li>Query/Invoke warm paths</li>
+<li>IncrementalCompiler no-change and small-change loops</li>
+</ul>
+</li>
+</ul>
+<h2 id="when-to-clear-caches">When to clear caches</h2>
+<ul>
+<li>For rare pathologies (runtime update, drastic project changes), ClearCache on IncrementalCompiler:
+<ul>
+<li>Clears syntax trees, references, base compilation, fast cache entries, and reference fingerprints.</li>
+</ul>
+</li>
+</ul>
+<h2 id="diagnostics">Diagnostics</h2>
+<ul>
+<li>HRM keeps minimal logs by default for clean test output.</li>
+<li>Enable verbose mode during investigation; leave it off for normal runs to avoid overhead.</li>
+</ul>
+  </main>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "channels": {
+    "develop": {
+      "available": true,
+      "buildDate": "2026-07-28T22:40:08Z",
+      "commit": "34a82aa001011a2113efdf9959075152a929c8e9",
+      "commitUrl": "https://github.com/Lunarsong/GameEngine/commit/34a82aa001011a2113efdf9959075152a929c8e9",
+      "platforms": {
+        "linux": {
+          "architecture": "x64",
+          "downloadUrl": "https://github.com/larssteenhoff/OpenEngine-Builds/releases/download/editor-develop-steamdeck-preview-20260729-r5/OpenEngine-develop-steamdeck-preview-20260729-r5-linux-x64.tar.gz",
+          "fileName": "OpenEngine-develop-steamdeck-preview-20260729-r5-linux-x64.tar.gz",
+          "name": "Linux",
+          "sha256": "833ea8000a2343ab27e723967f9d6d8f2eb30f851a8dbc1139f0eb67c3a1714e",
+          "sizeBytes": 916073980
+        }
+      },
+      "releaseUrl": "https://github.com/larssteenhoff/OpenEngine-Builds/releases/tag/editor-develop-steamdeck-preview-20260729-r5"
+    },
+    "main": {
+      "available": false,
+      "buildDate": null,
+      "commit": null,
+      "commitUrl": null,
+      "platforms": {},
+      "releaseUrl": null
+    }
+  },
+  "schemaVersion": 1
+}

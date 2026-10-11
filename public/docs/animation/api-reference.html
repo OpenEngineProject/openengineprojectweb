@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Humanoid Retargeting API Reference · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="humanoid-retargeting--api-reference">Humanoid Retargeting — API Reference</h1>
+<p>Every public type, function, asset, ECS component, system, op, and shader
+shipped by the humanoid retargeting redesign. Each entry includes a brief
+description and a minimal usage sketch. For the architecture overview see
+<a href="Architecture.md"><code>Architecture.md</code></a>; for the full plan see
+<a href="HumanoidRetargetingPlan.md"><code>HumanoidRetargetingPlan.md</code></a>.</p>
+<hr>
+<h2 id="asset-types">Asset types</h2>
+<h3 id="animationskeletonprofile"><code>Animation::SkeletonProfile</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/SkeletonProfile.h</code></p>
+<p>Canonical humanoid skeleton: which <code>HumanBone</code> slots are populated, their
+hierarchy, rest pose, and reference axes. Every <code>HumanoidRig</code> retargets to
+one. The engine ships <code>HumanoidStandard.profile.json</code> (60-bone humanoid);
+custom profiles for stylized characters (e.g., <code>HumanoidElf.profile.json</code>)
+live in the project mount.</p>
+<pre><code class="language-cpp">auto profile = std::make_shared&#x3C;Animation::SkeletonProfile>(guid, path);
+profile->Load();
+const Animation::ProfileBone* hipsBone = profile->FindBone(Animation::HumanBone::Hips);
+</code></pre>
+<h3 id="animationhumanoidrig"><code>Animation::HumanoidRig</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/HumanoidRig.h</code></p>
+<p>Per-mesh metadata that binds a specific source skeleton to a
+<code>SkeletonProfile</code>. Owns the canonical bone map, retarget pose deltas, chain
+definitions, body proportions, and attachment bones. One per FBX/glTF
+character (e.g., <code>BusinessMale.humanoidrig.json</code>).</p>
+<pre><code class="language-cpp">Animation::HumanoidRig rig(guid, path);
+rig.Load();
+// Auto-import path from a SkeletonData + SkeletonProfile:
+Animation::AutoImportHumanoidRig(skel, profile, rig);
+rig.SaveToPath(path);
+</code></pre>
+<h3 id="animationretargetmap"><code>Animation::RetargetMap</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/RetargetMap.h</code></p>
+<p>Source-rig -> target-rig pairing with per-chain FK / translation / IK
+settings and the op-stack list. One per directional source-target pair
+(e.g., <code>BusinessMale_to_YBot.retargetmap.json</code>).</p>
+<pre><code class="language-cpp">Animation::RetargetMap map(guid, path);
+map.SetSourceRigRef(srcRig.GetGUID());
+map.SetTargetRigRef(tgtRig.GetGUID());
+Animation::AutoCreateRetargetMap(srcRig, tgtRig, map);
+map.SaveToPath(path);
+</code></pre>
+<p><code>map.IsBroken()</code> returns true when either rig reference is null
+(inspector surfaces a “BROKEN” banner).</p>
+<hr>
+<h2 id="enums">Enums</h2>
+<h3 id="animationhumanbone"><code>Animation::HumanBone</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/HumanBone.h</code></p>
+<p>Canonical humanoid bone identity. 56 entries: <code>None</code> (sentinel) + 24 body
+anatomical (Hips, Spine, Chest, UpperChest, Neck, Head, [Left|Right]
+{Shoulder, UpperArm, LowerArm, Hand, UpperLeg, LowerLeg, Foot, Toes, Eye},
+Jaw) + 30 finger bones (Thumb / Index / Middle / Ring / Little x Proximal /
+Intermediate / Distal x Left / Right) + <code>Count</code>. Stable values; never
+reorder.</p>
+<pre><code class="language-cpp">const char* name = Animation::HumanBoneToString(Animation::HumanBone::Hips);
+auto bone = Animation::HumanBoneFromString("LeftFoot");
+</code></pre>
+<h3 id="animationchainkind"><code>Animation::ChainKind</code></h3>
+<p>Drives chain solver selection and op-stack defaults. Values:
+<code>LeftArm</code>, <code>RightArm</code>, <code>LeftLeg</code>, <code>RightLeg</code>, <code>Spine</code>, <code>Head</code>,
+<code>LeftFingers</code>, <code>RightFingers</code>, <code>Tail</code>, <code>Other</code>.</p>
+<h3 id="animationfkrotationmode"><code>Animation::FKRotationMode</code></h3>
+<p>Per-chain FK rotation transport mode. Values:</p>
+<ul>
+<li><code>OneToOne</code> — same-profile fast path (one quat copy per bone).</li>
+<li><code>Transport</code> — transport-then-slerp for unequal chain lengths (e.g., 3-
+bone source spine -> 5-bone target spine).</li>
+<li><code>SlerpAlongArc</code> — world-rotation-slerp-along-arc; closed-form, used for
+stylized spine cases.</li>
+</ul>
+<h3 id="animationfktranslationmode"><code>Animation::FKTranslationMode</code></h3>
+<p>Per-chain translation mode. <code>None</code> (default; non-translation bones forced
+to retarget pose), <code>PerBoneScale</code>, <code>UniformChainScale</code>.</p>
+<h3 id="animationattachmentpassthroughmode"><code>Animation::AttachmentPassthroughMode</code></h3>
+<p>How an attachment bone (cloak, sheath, hair anchor) is driven during
+retargeting. <code>CopyLocal</code> (drive from source local rotation; default for
+cosmetic bones), <code>Procedural</code> (driven by a runtime op), <code>Static</code> (hold
+local pose unchanged).</p>
+<h3 id="componentshumanoidretargetlod"><code>Components::HumanoidRetargetLOD</code></h3>
+<p>Phase 8 LOD enum. <code>Full</code> (Stages 1-7 + op stack), <code>NoOps</code> (skip op stack),
+<code>FKOnly</code> (skip Stage 5 IK + ops), <code>PoseHold</code> (reuse last frame’s pose).</p>
+<hr>
+<h2 id="ecs-components">ECS components</h2>
+<h3 id="componentshumanoidretargetercomponent"><code>Components::HumanoidRetargeterComponent</code></h3>
+<p>Header:
+<code>Engine/Include/Components/Animation/HumanoidRetargeterComponent.h</code></p>
+<p>Declarative POD for entities driven by humanoid retargeting. Carries the
+<code>RetargetMap</code> GUID, source clip index, time / speed / loop / pause flags,
+master / IK enable, IK blend alpha, auto-bootstrap marker, optional LOD
+override. State-free — <code>HumanoidRetargetSystem</code> owns the runtime tables.</p>
+<pre><code class="language-cpp">auto&#x26; retargeter = entity.AddComponent&#x3C;Components::HumanoidRetargeterComponent>();
+retargeter.Map = mapGuid;
+retargeter.SourceClipIndex = clipStoreIndex;
+retargeter.Enabled = true;
+</code></pre>
+<p>Coexists with <code>SkeletonRef</code> (target skeleton). An entity that carries
+<code>HumanoidRetargeterComponent</code> should NOT also carry <code>AnimatorRef</code>.</p>
+<hr>
+<h2 id="ecs-systems">ECS systems</h2>
+<h3 id="enginerenderinghumanoidretargetsystem"><code>Engine::Rendering::HumanoidRetargetSystem</code></h3>
+<p>Header:
+<code>Engine/ECSModules/Rendering/Include/ECSModules/Rendering/Systems/HumanoidRetargetSystem.h</code></p>
+<p>Per-frame system: drains hot-reload events at the top of <code>Update()</code>,
+iterates entities with <code>HumanoidRetargeterComponent</code> + <code>SkeletonRef</code>,
+resolves the map and rigs, samples the source clip, runs either the GPU
+pass chain (default) or the CPU fallback (<code>r.RetargetCPU=1</code> /
+<code>GE_RETARGET_CPU=1</code>), and writes the result into
+<code>SkeletonRuntimeState::CompactSkinMatrices</code> (CPU) or <code>SkinPaletteAtlas</code>
+(GPU).</p>
+<p>The system replaces cross-rig dispatch in <code>AnimationSystem</code>; same-rig
+sampling stays in <code>AnimationSystem</code> and is unchanged.</p>
+<pre><code class="language-cpp">auto* renderServices = engine.GetRenderServices();
+auto retargetSystem =
+    std::make_unique&#x3C;Engine::Rendering::HumanoidRetargetSystem>(renderServices);
+ecsWorld.AddSystem(std::move(retargetSystem));
+</code></pre>
+<p>Test seam: <code>TestHooks::RunCPUEvaluateForTest</code> /
+<code>TestHooks::RunCPUEvaluateAtLODForTest</code> mirror the per-character path
+without spinning up a full ECS world.</p>
+<hr>
+<h2 id="anim-graph-nodes">Anim graph nodes</h2>
+<h3 id="animationanimgraphnode"><code>Animation::AnimGraphNode</code></h3>
+<p>Base class. <code>virtual void Evaluate(EvaluationContext&#x26;, AnimationPose&#x26;)</code>.
+Subclasses produce a pose; the graph composes them.</p>
+<h3 id="animationretargetnode"><code>Animation::RetargetNode</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/Nodes/RetargetNode.h</code></p>
+<p>Runs Stages 1-3 of the 6-stage pipeline (encode + FK transport + translate)
+on CPU. Auto-instantiated by <code>HumanoidRetargetSystem</code> for component-driven
+entities; usable directly via <code>AnimationGraphPlayer</code> for power-user custom
+graphs.</p>
+<pre><code class="language-cpp">Animation::RetargetNode node;
+node.Configure(&#x26;sourceProvider, &#x26;srcRig, &#x26;tgtRig, &#x26;map);
+node.Build(*srcSkel, *tgtSkel);
+node.Evaluate(ctx, outPose);
+</code></pre>
+<p><code>Build()</code> is idempotent. Subsequent rig / map mutations (asset reload)
+require a fresh <code>Build()</code> call.</p>
+<h3 id="other-graph-nodes">Other graph nodes</h3>
+<p>Stock animation graph primitives reused by retarget chains:</p>
+<ul>
+<li><code>ClipPlayerNode</code> — leaf; samples one <code>AnimationClip</code>.</li>
+<li><code>LayeredBlendNode</code> — base + overlay + per-bone mask.</li>
+<li><code>AdditiveBlendNode</code> — base + additive layer (delta transforms).</li>
+<li><code>Blend2Node</code>, <code>BlendSpace1DNode</code>, <code>BlendSpace2DNode</code> — parametric blends.</li>
+<li><code>MontageSlotNode</code> — anim montage instance.</li>
+<li><code>StateMachineNode</code> — finite state machine; transitions between sub-graphs.</li>
+<li><code>TwoBoneIKNode</code>, <code>FABRIKNode</code>, <code>FootIKNode</code>, <code>LookAtNode</code> — IK leaves.</li>
+</ul>
+<hr>
+<h2 id="op-stack">Op stack</h2>
+<h3 id="animationopstacknode"><code>Animation::OpStackNode</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/OpStackNode.h</code></p>
+<p>Base class for Stage 6 ops. Each op subclass parses its JSON params at
+construction and applies a deterministic mutation to the post-IK pose.</p>
+<pre><code class="language-cpp">auto op = Animation::OpStackNode::CreateFromName("AttachmentPassthrough", params);
+op->Execute(opCtx, outPose);
+</code></pre>
+<p><code>CanonicalOrderForName("AttachmentPassthrough") == 0</code>,
+<code>"LookAt" == 1</code>, <code>"BodyIntersect" == 2</code> (v2),
+<code>"FootLock" == 3</code>. RetargetMap.OpStack is reordered to canonical when
+empty; the inspector emits a warning when the user authors an out-of-
+canonical-order list. Call <code>EnsureOpStackRegistrations()</code> once before
+resolving an op by name.</p>
+<h3 id="v1-ops">v1 ops</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Op</th><th>File</th><th>Purpose</th></tr></thead><tbody><tr><td><code>AttachmentPassthroughOp</code></td><td><code>Animation/Ops/AttachmentPassthroughOp.h</code></td><td>Drive cloak / sheath / hair from source local rotation.</td></tr><tr><td><code>LookAtOp</code></td><td><code>Animation/Ops/LookAtOp.h</code></td><td>Aim Head + Eye bones at a world target.</td></tr><tr><td><code>FootLockOp</code></td><td><code>Animation/Ops/FootLockOp.h</code></td><td>Eliminate foot sliding when source-foot planar speed &#x3C; threshold. CPU fallback double-buffers prev-frame foot positions inside the op instance; GPU path uses prev-frame state SSBO.</td></tr></tbody></table>
+<h3 id="v2-ops-deferred">v2 ops (deferred)</h3>
+<p><code>BodyIntersectOp</code> (SDF push-out), <code>HandLockOp</code> (combat hold),
+<code>TwistRedistributeOp</code> (parent-twist redistribution).</p>
+<hr>
+<h2 id="editor-primitives">Editor primitives</h2>
+<h3 id="animationhumanoidnamematcher"><code>Animation::HumanoidNameMatcher</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/HumanoidNameMatcher.h</code></p>
+<p>Bone-name regex matcher. Maps a source-rig bone name onto a <code>HumanBone</code>
+canonical slot. Covers Mixamo (<code>mixamorig:</code> prefix), Synty, MetaHuman,
+Maya, VRM, glTF.</p>
+<pre><code class="language-cpp">Animation::HumanoidNameMatcher matcher;
+auto result = matcher.MatchSkeleton(skel.BoneNames);
+const auto* hipsMapping = result.Find(Animation::HumanBone::Hips);
+</code></pre>
+<p><code>HumanoidNameMatcher::IsRequiredBone(bone)</code> returns true for the body
+bones that drive the auto-import coverage gate (<code>kAutoImportCoverageThreshold</code>
+= 0.8).</p>
+<h3 id="animationhumanoidimport"><code>Animation::HumanoidImport</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/HumanoidImport.h</code></p>
+<p>One-shot import helpers. Free functions; no state.</p>
+<ul>
+<li><code>DetectAPose(skel, mapping)</code> -> <code>APoseDetectionResult</code> — does the rest
+pose look like a Synty A-pose? Walks parent-rest-translation chains.</li>
+<li><code>BakeRetargetPoseFromAPose(skel, profile, outRig)</code> — for each canonical
+bone where source rest differs from profile T-pose, computes the per-
+bone fix-up rotation. Within-5-deg deltas snap to identity.</li>
+<li><code>AutoImportHumanoidRig(skel, profile, outRig)</code> — runs the matcher,
+computes body proportions, derives canonical chains, bakes per-bone
+retarget pose. Returns true when required-bone coverage clears
+<code>kAutoImportCoverageThreshold</code>.</li>
+<li><code>AutoCreateRetargetMap(srcRig, tgtRig, outMap)</code> — populates default
+<code>ChainPairing</code> entries for every canonical chain present on both rigs.</li>
+</ul>
+<pre><code class="language-cpp">Animation::HumanoidRig rig(guid, path);
+if (Animation::AutoImportHumanoidRig(skel, profile, rig))
+{
+    rig.SaveToPath(path);
+}
+</code></pre>
+<h3 id="animationhumanoidretargetbootstrap"><code>Animation::HumanoidRetargetBootstrap</code></h3>
+<p>Header:
+<code>Engine/Modules/Animation/Include/Animation/HumanoidRetargetBootstrap.h</code></p>
+<p>Plumbing for the editor’s “Clip uses different skeleton; setting up
+retargeting.” UX. Editor calls <code>TrySetupAutomatically(inputs, &#x26;record)</code>;
+the function validates inputs and produces a <code>HumanoidRetargetBootstrap</code>
+record (banner text, GUIDs). The editor wraps with banner UI in Phase 7b.</p>
+<pre><code class="language-cpp">Animation::AutoBootstrapInputs inputs{ &#x26;srcRig, &#x26;tgtRig, &#x26;map, mapWasNew };
+Animation::HumanoidRetargetBootstrap record;
+if (Animation::TrySetupAutomatically(inputs, &#x26;record))
+{
+    editor.ShowBootstrapBanner(record.BannerText, record.MapGUID);
+}
+</code></pre>
+<h3 id="animationhumanoidrigedit"><code>Animation::HumanoidRigEdit</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/HumanoidRigEdit.h</code></p>
+<p>Phase 7b retarget-pose authoring helpers. Pure data; the inspector calls
+them and writes back via the existing Save path.</p>
+<ul>
+<li><code>ForceRetargetPoseToIdentity(rig)</code> — collapse every retarget delta to
+identity. Used when source rig is canonical T-pose.</li>
+<li><code>CaptureRetargetPoseFromPreview(rig, localRotations, epsilonDeg)</code> —
+capture per-bone local rotations from an editor-supplied snapshot;
+near-identity collapses to identity.</li>
+<li><code>BakeRetargetPoseFromClipFrame(rig, clip, skel, timeSeconds, epsilonDeg)</code>
+— sample a clip at a given time and write per-bone rotations into the
+rig’s retarget pose. Returns the number of mappings updated.</li>
+</ul>
+<hr>
+<h2 id="engine-primitives-phase-0">Engine primitives (Phase 0)</h2>
+<h3 id="animationevaluationcontext"><code>Animation::EvaluationContext</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/EvaluationContext.h</code></p>
+<p>Per-<code>Evaluate</code> context. Carries source / target profiles, source / target
+skeletons, the per-thread scratch <code>PoseStack</code>, and <code>DeltaTime</code>. All
+pointers are non-owning; the caller (typically the ECS animation system)
+owns lifetime for the duration of the call tree.</p>
+<h3 id="animationposestack"><code>Animation::PoseStack</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/PoseStack.h</code></p>
+<p>Pre-allocated stack of <code>AnimationPose</code> scratch buffers. Use with the RAII
+<code>Frame</code> handle to allocate scratch poses inside <code>Evaluate()</code>:</p>
+<pre><code class="language-cpp">void Foo::Evaluate(EvaluationContext&#x26; ctx, AnimationPose&#x26; outPose) {
+    Animation::PoseStack::Frame scratch(*ctx.ScratchStack);
+    AnimationPose&#x26; tmp = scratch.Pose();
+    // ...
+}
+</code></pre>
+<p><code>kMaxDepth = 8</code>. Resize once via <code>Reserve(boneCount)</code>; subsequent
+<code>Evaluate</code> calls reuse capacity without allocating.</p>
+<h3 id="animationallocationguard"><code>Animation::AllocationGuard</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/AllocationGuard.h</code></p>
+<p>RAII per-thread allocation counter for tests. Asserts zero allocations
+after warm-up:</p>
+<pre><code class="language-cpp">TEST(IK, ZeroAllocsAfterWarmup) {
+    DoWork();                        // warm-up
+    Animation::AllocationGuard g;    // start counting
+    DoWork();
+    EXPECT_EQ(g.Count(), 0u);
+}
+</code></pre>
+<p>Live in DebugFast; no-op in NDEBUG.</p>
+<h3 id="animationquaternionconvert"><code>Animation::QuaternionConvert</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/QuaternionConvert.h</code></p>
+<p>Explicit <code>glm::quat &#x3C;-> Mathematics::Quaternion</code> conversions. Module-
+boundary use only — pipeline code is <code>Mathematics::Quaternion</code> exclusively
+per Appendix A.</p>
+<pre><code class="language-cpp">glm::quat g = Animation::GlmFromMathematics(q);
+auto m = Animation::MathematicsFromGlm(g);
+</code></pre>
+<h3 id="animationquaternionmath"><code>Animation::QuaternionMath</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/QuaternionMath.h</code></p>
+<p>Header-only helpers. <strong>Every slerp / lerp call in retarget code routes
+through <code>SlerpShort</code> / <code>LerpShortNormalized</code></strong> — Appendix A mandates the
+antipode flip at every site. Calling <code>glm::slerp</code> or
+<code>Mathematics::Quaternion::Slerp</code> directly is forbidden.</p>
+<pre><code class="language-cpp">auto q = Animation::SlerpShort(a, b, 0.5f);
+float deg = Animation::AngleBetweenDegrees(a, b);
+</code></pre>
+<h3 id="animationposeutilities"><code>Animation::PoseUtilities</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/PoseUtilities.h</code></p>
+<p>Free functions: <code>ComputeWorldSpace(localPose, parentIndices, outWorld)</code>
+(out-param overload preferred on hot paths), <code>WorldToLocalRotation</code>,
+<code>WorldToLocalPosition</code>. The out-param overload only resizes its vectors
+when smaller than required.</p>
+<h3 id="animationposetoskinmatrices"><code>Animation::PoseToSkinMatrices</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/PoseToSkinMatrices.h</code></p>
+<p><code>BuildPoseToSkinMatrices(skeleton, outNodeWorldMats, outCompactSkinMats, ws)</code>
+walks the target hierarchy and emits the compact skin palette consumed by
+<code>SkinningUploadSystem</code>. Both regular and retargeted sample paths call
+this; no rendering deps.</p>
+<h3 id="animationanimationpose"><code>Animation::AnimationPose</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/AnimationPose.h</code></p>
+<p>Snapshot of all bone local transforms. SoA: <code>Positions</code>, <code>Rotations</code>,
+<code>Scales</code>, <code>BoneCount</code>. Static helpers: <code>Blend(a, b, weight, result)</code> and
+<code>BlendAdditive(base, additive, weight, result)</code>.</p>
+<h3 id="animationskeletondata"><code>Animation::SkeletonData</code></h3>
+<p>Header: <code>Engine/Modules/Animation/Include/Animation/SkeletonData.h</code></p>
+<p>Per-skeleton authored data. Bone hierarchy, rest pose (TRS + 4x4 local
+matrix), bind / inverse-bind matrices, world anchors, hashed bone names
+for sample-time channel resolution, topological order for hierarchy walk.
+Phase 0b moved this from <code>Engine::Rendering::SkeletonData</code> into the
+Animation module; the legacy symbol still resolves via a <code>using</code> alias in
+<code>SkeletonStore.h</code>.</p>
+<hr>
+<h2 id="render-graph-passes-gpu-path">Render-graph passes (GPU path)</h2>
+<p>All under <code>Engine/Modules/Rendering</code> / <code>Engine/Source/Engine/Rendering/</code>.
+Each consumes the <code>RetargetMapDataSSBO</code> + <code>RetargetCharacterStateSSBO</code>
+slots allocated by <code>RetargetGPUDataStore</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Pass</th><th>Purpose</th></tr></thead><tbody><tr><td><code>AnimationSampleSourcePass</code></td><td>Stage 0; existing engine pass.</td></tr><tr><td><code>RetargetEncodePass</code></td><td>Stage 1; runs <code>retarget_encode.comp</code>.</td></tr><tr><td><code>RetargetFKPass</code></td><td>Stage 2; runs <code>retarget_fk_transport.comp</code> (Modes A+B) and <code>retarget_fk_world_arc.comp</code> (Mode D).</td></tr><tr><td><code>RetargetTranslatePass</code></td><td>Stage 3; runs <code>retarget_translate.comp</code>.</td></tr><tr><td><code>RetargetWorldPosePass</code></td><td>Builds source + target world poses for IK.</td></tr><tr><td><code>RetargetIKGoalPass</code></td><td>Stage 4; runs <code>retarget_ik_goal.comp</code>.</td></tr><tr><td><code>RetargetIKSolvePass</code></td><td>Stage 5; runs <code>retarget_two_bone_ik.comp</code> + <code>retarget_fabrik.comp</code>.</td></tr><tr><td><code>RetargetOpStackPass</code></td><td>Stage 6 orchestrator; emits <code>RetargetOpAttachmentPass</code>, <code>RetargetOpLookAtPass</code>, <code>RetargetOpFootLockPass</code> in canonical order.</td></tr><tr><td><code>RetargetPoseToPalettePass</code></td><td>Stage 7; runs <code>retarget_pose_to_palette.comp</code>; writes into <code>SkinPaletteAtlas</code>.</td></tr></tbody></table>
+<hr>
+<h2 id="gpu-compute-shaders">GPU compute shaders</h2>
+<p>All under <code>Engine/Modules/Rendering/Shaders/Animation/</code>:</p>
+<p><code>retarget_encode.comp</code>, <code>retarget_fk_transport.comp</code>,
+<code>retarget_fk_world_arc.comp</code>, <code>retarget_translate.comp</code>,
+<code>retarget_world_pose_build.comp</code>, <code>retarget_ik_goal.comp</code>,
+<code>retarget_two_bone_ik.comp</code>, <code>retarget_fabrik.comp</code>,
+<code>retarget_op_attachment.comp</code>, <code>retarget_op_lookat.comp</code>,
+<code>retarget_op_foot_lock.comp</code>, <code>retarget_pose_to_palette.comp</code>.</p>
+<hr>
+<h2 id="gpu-data-store">GPU data store</h2>
+<h3 id="enginerenderingretargetgpudatastore"><code>Engine::Rendering::RetargetGPUDataStore</code></h3>
+<p>Header: <code>Engine/Include/Engine/Rendering/RetargetGPUDataStore.h</code></p>
+<p>Owns persistent device-local SSBOs (<code>RetargetMapDataSSBO</code>,
+<code>RetargetCharacterStateSSBO</code>). Modeled on <code>GPUAnimationDataStore</code>. Per-
+character slot allocation, lazy upload on asset reload,
+<code>IsDispatchScheduledThisFrame</code> guard for multi-view dispatch dedup.</p>
+<p>Hooks:</p>
+<ul>
+<li><code>ReserveCharacter(slotOut)</code> / <code>ReleaseCharacter(slot)</code></li>
+<li><code>UploadMap(slot, MapUpload)</code> — re-upload on rig / map / profile change</li>
+<li><code>WriteSourcePose(slot, srcPose)</code> — per-frame</li>
+<li><code>WritePrevFootPosition(slot, footIdx, pos)</code></li>
+<li><code>WriteLookAtTarget(slot, target)</code></li>
+<li><code>WritePaletteAtlasOffset(slot, offsetMat4, skinJointCount)</code></li>
+<li>Resident byte tracking via <code>Memory::AllocationCategory::Animation</code>.</li>
+</ul>
+<hr>
+<h2 id="editor-inspectors">Editor inspectors</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Inspector</th><th>Phase</th><th>Purpose</th></tr></thead><tbody><tr><td><code>SkeletonProfileInspector</code></td><td>1 (read-only)</td><td>View profile bones, reference pose, axis frames.</td></tr><tr><td><code>HumanoidRigInspector</code></td><td>1 (read-only) -> 7b (body-diagram-style slot list)</td><td>View / edit canonical bone map, retarget pose, chains, attachments, body proportions. Three retarget-pose authoring buttons. Drag-drop bone re-binding (Phase 7c).</td></tr><tr><td><code>RetargetMapInspector</code></td><td>1 (read-only) -> 7b (chain + op editor)</td><td>View / edit per-chain FK / translation / IK settings; op-stack reorder + add / remove with canonical-order warnings.</td></tr><tr><td><code>RetargetBootstrapBanner</code></td><td>7b</td><td>One-click “Clip uses different skeleton” UX; silenceable per-folder via <code>RetargetBootstrapBannerPrefs</code>.</td></tr></tbody></table>
+<hr>
+<h2 id="engine-shipped-assets">Engine-shipped assets</h2>
+<p>Repo source: <code>Apps/Editor/Assets/SkeletonProfiles/</code></p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>File</th><th>Purpose</th></tr></thead><tbody><tr><td><code>HumanoidStandard.profile.json</code></td><td>Canonical 60-bone humanoid profile shipped with the engine; auto-import default. Resolved via <code>editor:</code> URL alias.</td></tr></tbody></table>
+<p>Runtime (editor mount): <code>build/&#x3C;preset>/bin/&#x3C;config>/Apps/Editor/Assets/</code>.</p>
+<p>User-authored profiles live in the project mount:
+<code>Assets/SkeletonProfiles/&#x3C;Custom>.profile.json</code>. Same schema; pointed at
+via <code>HumanoidRig.ProfileRef</code>.</p>
+<hr>
+<h2 id="cache-files">Cache files</h2>
+<p>Path: <code>&#x3C;projectDir>/.cache/retarget/&#x3C;SourceRigGUID>/&#x3C;ClipGUID>.cache.bin</code></p>
+<p>Formulation A bake (per-bone parent-shift-corrected rotation keys). Lazy-
+rebuilt on rig / clip / retarget-pose change. Not source-controlled.</p>
+<hr>
+<h2 id="env-var-toggles">Env-var toggles</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Var</th><th>Effect</th></tr></thead><tbody><tr><td><code>r.RetargetCPU=1</code> / <code>GE_RETARGET_CPU=1</code></td><td>Force CPU fallback path (editor preview / debugging).</td></tr><tr><td><code>GE_RETARGET_BASELINE_REFRESH=1</code></td><td>Refresh <code>Tools/ai/retarget-redesign/baselines/humanoid_retarget_100char_Debug.json</code> on next bench run.</td></tr></tbody></table>
+<hr>
+<h2 id="test-only-seams">Test-only seams</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Seam</th><th>Purpose</th></tr></thead><tbody><tr><td><code>HumanoidRig::*Mutable()</code>, <code>RetargetMap::*Mutable()</code></td><td>Direct edit access for test fixtures.</td></tr><tr><td><code>SkeletonProfile::Set*ForTest</code></td><td>Bypass JSON parser for test fixtures.</td></tr><tr><td><code>RetargetNode::BakeRewriteForTest</code>, <code>ParentShiftForTest</code></td><td>Inspect Stage 1 caches.</td></tr><tr><td><code>FootLockOp::HasPrevAnchor</code>, <code>PrevAnchor</code></td><td>Inspect prev-frame state.</td></tr><tr><td><code>LookAtOp::HasTarget</code>, <code>Target</code></td><td>Inspect parsed params.</td></tr><tr><td><code>RetargetAssetWatcher::Fire*ForTest</code></td><td>Synthesize hot-reload events.</td></tr><tr><td><code>HumanoidRetargetSystem::ResetForTest</code></td><td>Drop per-character cache between tests.</td></tr><tr><td><code>HumanoidRetargetSystem::GetLastLODForRuntime</code></td><td>Read most recent LOD selection.</td></tr><tr><td><code>Engine::Rendering::TestHooks::RunCPUEvaluateForTest</code></td><td>Run one CPU evaluate without a full ECS world.</td></tr><tr><td><code>Engine::Rendering::TestHooks::RunCPUEvaluateAtLODForTest</code></td><td>Same, LOD-aware.</td></tr></tbody></table>
+<p>These seams are intentionally narrow. Production code does not call them.</p>
+  </main>
+</body>
+</html>

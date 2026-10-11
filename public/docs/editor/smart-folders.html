@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Folders · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="smart-folders">Smart Folders</h1>
+<p>Smart Folders are virtual folders that automatically display assets matching specific filter criteria. They provide a powerful way to organize and quickly access files across your project without moving them from their original locations.</p>
+<h2 id="creating-a-smart-folder">Creating a Smart Folder</h2>
+<ol>
+<li>Right-click on the <strong>Smart Folders</strong> section in the Assets panel tree view</li>
+<li>Select <strong>New Smart Folder</strong> from the context menu</li>
+<li>A new smart folder will appear with the default name “New Smart Folder”</li>
+<li>Click on the smart folder to select it and configure its settings in the Inspector panel</li>
+</ol>
+<h2 id="smart-folder-settings">Smart Folder Settings</h2>
+<p>When a smart folder is selected, the Inspector panel displays the following settings:</p>
+<h3 id="name">Name</h3>
+<p>The display name of the smart folder. This appears in the Assets panel tree view.</p>
+<h3 id="location">Location</h3>
+<p>The root directory to search for matching files:</p>
+<ul>
+<li><strong>(All Assets)</strong>: Searches all files in the project’s Assets folder</li>
+<li><strong>Specific folder</strong>: Limits the search to a specific directory and its subdirectories (up to 3 levels deep)</li>
+</ul>
+<h3 id="match">Match</h3>
+<p>How multiple filters are combined:</p>
+<ul>
+<li><strong>Any filter (OR)</strong>: Files matching <em>any</em> of the filters will be included</li>
+<li><strong>All filters (AND)</strong>: Only files matching <em>all</em> filters will be included</li>
+</ul>
+<h3 id="global">Global</h3>
+<p>Controls where the smart folder is stored:</p>
+<ul>
+<li><strong>Off</strong>: Stored per-project. Only appears when this project is open.</li>
+<li><strong>On</strong>: Stored globally. Appears across all projects.</li>
+</ul>
+<h2 id="filters">Filters</h2>
+<p>Filters define which files appear in the smart folder.</p>
+<h3 id="adding-filters">Adding Filters</h3>
+<p>Click the <strong>Add Filter</strong> button to add a new filter row.</p>
+<h3 id="filter-types">Filter Types</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Filter Type</th><th>Description</th><th>Example Values</th></tr></thead><tbody><tr><td><strong>File Type</strong></td><td>Match files by extension</td><td><code>.png</code>, <code>.jpg</code>, <code>.cs</code>, <code>.mp3</code></td></tr><tr><td><strong>Name Contains</strong></td><td>Match files whose name contains text</td><td><code>player</code>, <code>texture</code>, <code>audio</code></td></tr><tr><td><strong>Regex</strong></td><td>Match files using a regular expression</td><td><code>^UI_.*</code>, <code>.*_diffuse$</code>, <code>player\d+</code></td></tr></tbody></table>
+<h3 id="removing-filters">Removing Filters</h3>
+<p>Click the <strong>×</strong> button on the right side of a filter row to remove it.</p>
+<h2 id="using-smart-folders">Using Smart Folders</h2>
+<ul>
+<li><strong>View Contents</strong>: Click on a smart folder in the tree view to display its matching files in the grid/list view</li>
+<li><strong>Open Files</strong>: Double-click files in the smart folder view to open them</li>
+<li><strong>Drag and Drop</strong>: Files can be dragged from smart folders to other panels</li>
+</ul>
+<h2 id="undo-support">Undo Support</h2>
+<p>Smart folder operations support undo/redo:</p>
+<ul>
+<li><strong>Create</strong>: Undo removes the created smart folder</li>
+<li><strong>Delete</strong>: Undo restores the deleted smart folder with all its settings</li>
+<li><strong>Edit</strong>: Undo reverts changes to smart folder settings</li>
+</ul>
+<p>Use <strong>Cmd+Z</strong> (macOS) or <strong>Ctrl+Z</strong> (Windows/Linux) to undo.</p>
+<h2 id="examples">Examples</h2>
+<h3 id="all-textures">All Textures</h3>
+<ul>
+<li><strong>Match</strong>: Any filter (OR)</li>
+<li><strong>Filters</strong>:
+<ul>
+<li>File Type: <code>.png</code></li>
+<li>File Type: <code>.jpg</code></li>
+<li>File Type: <code>.tga</code></li>
+</ul>
+</li>
+</ul>
+<h3 id="all-audio-files">All Audio Files</h3>
+<ul>
+<li><strong>Match</strong>: Any filter (OR)</li>
+<li><strong>Filters</strong>:
+<ul>
+<li>File Type: <code>.mp3</code></li>
+<li>File Type: <code>.wav</code></li>
+<li>File Type: <code>.ogg</code></li>
+</ul>
+</li>
+</ul>
+<h3 id="player-scripts">Player Scripts</h3>
+<ul>
+<li><strong>Match</strong>: All filters (AND)</li>
+<li><strong>Filters</strong>:
+<ul>
+<li>File Type: <code>.cs</code></li>
+<li>Name Contains: <code>Player</code></li>
+</ul>
+</li>
+</ul>
+<h3 id="ui-textures">UI Textures</h3>
+<ul>
+<li><strong>Match</strong>: All filters (AND)</li>
+<li><strong>Location</strong>: <code>Assets/Textures</code></li>
+<li><strong>Filters</strong>:
+<ul>
+<li>Regex: <code>^UI_.*</code></li>
+</ul>
+</li>
+</ul>
+<h2 id="settings">Settings</h2>
+<p>In <strong>Edit > Preferences > Assets</strong>, you can configure:</p>
+<ul>
+<li><strong>Smart Folders At Top</strong>: When enabled, smart folders appear at the top of the Assets tree. When disabled, they appear at the bottom.</li>
+</ul>
+<h2 id="storage-locations">Storage Locations</h2>
+<ul>
+<li><strong>Project smart folders</strong>: Stored in <code>&#x3C;ProjectRoot>/.Editor/SmartFolders.json</code></li>
+<li><strong>Global smart folders</strong>: Stored in <code>~/Library/Application Support/GameEngine/Editor/SmartFolders.json</code> (macOS) or <code>%APPDATA%/GameEngine/Editor/SmartFolders.json</code> (Windows)</li>
+</ul>
+<h2 id="technical-notes">Technical Notes</h2>
+<p>Smart folders use the <strong>AssetRegistry</strong> for file lookup, which provides:</p>
+<ul>
+<li><strong>Faster performance</strong>: Uses pre-indexed asset data instead of filesystem scanning</li>
+<li><strong>Consistent results</strong>: Respects <code>.assetignore</code> rules and only shows registered assets</li>
+<li><strong>Accurate metadata</strong>: Access to asset type, dependencies, and other registry information</li>
+</ul>
+<p>If the AssetRegistry is unavailable, smart folders fall back to direct filesystem scanning.</p>
+  </main>
+</body>
+</html>

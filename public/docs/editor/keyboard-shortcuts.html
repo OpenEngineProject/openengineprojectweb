@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor Keyboard Shortcuts · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="editor-keyboard-shortcuts">Editor Keyboard Shortcuts</h1>
+<h2 id="gizmo-tools-scene-view">Gizmo Tools (Scene View)</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Key</th><th>Tool</th><th>Description</th></tr></thead><tbody><tr><td><strong>Q</strong></td><td>Selection</td><td>Arrow tool - select objects</td></tr><tr><td><strong>W</strong></td><td>Move</td><td>Translate gizmo - move objects</td></tr><tr><td><strong>E</strong></td><td>Rotate</td><td>Rotation gizmo - rotate objects</td></tr><tr><td><strong>R</strong></td><td>Scale</td><td>Scale gizmo - resize objects</td></tr></tbody></table>
+<h2 id="camera-navigation-scene-view">Camera Navigation (Scene View)</h2>
+<h3 id="mouse-camera-controls">Mouse Camera Controls</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Input</th><th>Action</th><th>Description</th></tr></thead><tbody><tr><td><strong>RMB (Hold &#x26; Drag)</strong></td><td>FPS Look</td><td>Free-look camera (first-person style)</td></tr><tr><td><strong>Alt + LMB</strong></td><td>Orbit</td><td>Rotate camera around pivot point</td></tr><tr><td><strong>Alt + Ctrl + LMB</strong> (PC/Linux)</td><td>Pan</td><td>Move camera horizontally/vertically</td></tr><tr><td><strong>Alt + Cmd + LMB</strong> (macOS)</td><td>Pan</td><td>Move camera horizontally/vertically</td></tr><tr><td><strong>Alt + RMB</strong></td><td>Dolly</td><td>Zoom in/out (move left-right)</td></tr></tbody></table>
+<h3 id="keyboard-camera-controls">Keyboard Camera Controls</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Input</th><th>Action</th><th>Description</th></tr></thead><tbody><tr><td><strong>W</strong> (+ RMB)</td><td>Move Forward</td><td>Move camera forward</td></tr><tr><td><strong>A</strong> (+ RMB)</td><td>Move Left</td><td>Move camera left</td></tr><tr><td><strong>S</strong> (+ RMB)</td><td>Move Backward</td><td>Move camera backward</td></tr><tr><td><strong>D</strong> (+ RMB)</td><td>Move Right</td><td>Move camera right</td></tr><tr><td><strong>Shift</strong> (+ WASD + RMB)</td><td>Fast Move</td><td>3x faster camera movement</td></tr></tbody></table>
+<h3 id="camera-framing">Camera Framing</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Key</th><th>Action</th><th>Description</th></tr></thead><tbody><tr><td><strong>F</strong></td><td>Frame Selection</td><td>Focus camera on selected object</td></tr><tr><td><strong>Alt + F</strong></td><td>Frame All</td><td>Focus camera on all objects in scene</td></tr></tbody></table>
+<h2 id="global-editor-shortcuts">Global Editor Shortcuts</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Key</th><th>Action</th><th>Description</th></tr></thead><tbody><tr><td><strong>G</strong></td><td>Toggle Gizmos</td><td>Show/hide transformation gizmos</td></tr><tr><td><strong>P</strong></td><td>Toggle FPS Counter</td><td>Show/hide FPS counter in Scene View</td></tr><tr><td><strong>Cmd + W</strong> (macOS)</td><td>Close Tab/Window</td><td>Close active tab or floating window</td></tr><tr><td><strong>Ctrl + W</strong> (PC/Linux)</td><td>Close Tab/Window</td><td>Close active tab or floating window</td></tr><tr><td><strong>F11</strong></td><td>Toggle Debug Zones</td><td>Show/hide dock debug overlay</td></tr><tr><td><strong>F3</strong></td><td>UI Demo Panel</td><td>Open UI demo/test panel</td></tr></tbody></table>
+<hr>
+<h2 id="platform-differences">Platform Differences</h2>
+<p>All shortcuts work cross-platform. The only difference is:</p>
+<ul>
+<li><strong>macOS</strong> uses <strong>Cmd</strong> (Command) as the primary modifier</li>
+<li><strong>Windows/Linux</strong> uses <strong>Ctrl</strong> (Control) as the primary modifier</li>
+</ul>
+<hr>
+<h2 id="tab-management">Tab Management</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Action</th><th>Method</th><th>Description</th></tr></thead><tbody><tr><td><strong>Close Tab</strong></td><td>Right-click on tab</td><td>Close a specific panel tab</td></tr><tr><td><strong>Close Tab</strong></td><td><strong>Cmd/Ctrl + W</strong></td><td>Close the currently active tab</td></tr><tr><td><strong>Close Window</strong></td><td><strong>Cmd/Ctrl + W</strong> (when no tabs)</td><td>Close floating window</td></tr></tbody></table>
+<p><strong>Note</strong>: The hidden close button on tabs has been removed. Use right-click or keyboard shortcuts to close tabs.</p>
+<hr>
+<h2 id="tips">Tips</h2>
+<ul>
+<li><strong>WASD navigation</strong> requires holding the right mouse button (RMB)</li>
+<li><strong>Alt-based camera controls</strong> work independently and don’t require RMB</li>
+<li>Press <strong>Shift</strong> while moving to triple your movement speed</li>
+<li>Press <strong>F</strong> to quickly frame and zoom to a selected object</li>
+<li>Press <strong>A</strong> to frame all objects in the scene</li>
+<li><strong>Right-click on any tab</strong> to access the context menu with close option</li>
+<li><strong>Cmd/Ctrl + W</strong> closes the active tab; if no tabs remain in a floating window, it closes the window</li>
+</ul>
+  </main>
+</body>
+</html>

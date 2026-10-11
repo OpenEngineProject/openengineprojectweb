@@ -1,0 +1,30 @@
+# Cross-origin isolation for the web editor only: SharedArrayBuffer (wasm
+# pthreads) requires COOP+COEP, and scoping it here keeps third-party embeds
+# working everywhere else on the site. require-corp rather than credentialless:
+# Safari implements only require-corp, and the editor can satisfy it — its
+# direct subresources are same-origin, engine fetches run in CORS mode, and
+# the in-app Web panel's iframe carries its own `credentialless` attribute
+# (page-level COEP never governed nested documents). Safari loses only the
+# cross-origin Web panel (no iframe credentialless there) but gains the
+# editor itself.
+# Both spellings: the assets host 307-redirects webeditor.html to the
+# extensionless pretty URL, and headers match the path actually served.
+#
+# HTML is never stored: a visit after a deploy must read the stamped asset
+# revision. Assets revalidate so a stale HTML that still names the unversioned
+# files cannot keep a previous wasm forever.
+/webeditor
+  Cache-Control: no-cache, no-store, must-revalidate
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+
+/webeditor.html
+  Cache-Control: no-cache, no-store, must-revalidate
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+
+/webeditor-assets/*
+  Cache-Control: no-cache
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Resource-Policy: same-origin

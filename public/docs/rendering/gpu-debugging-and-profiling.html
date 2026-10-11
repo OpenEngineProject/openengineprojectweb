@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPU Debugging and Profiling · Open Engine Documentation</title>
+<style>
+:root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+* { box-sizing: border-box; }
+html, body { background: #05070c; }
+body { margin: 0; color: #cbc8d3; }
+main { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+h1, h2 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139,172,204,.2); font-size: clamp(25px, 3vw, 34px); }
+p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+a { color: #8beeff; }
+code { color: #c4efff; }
+li { margin: 8px 0; }
+blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110,231,255,.06); }
+</style>
+</head>
+<body>
+<main>
+<h1>GPU Debugging and Profiling</h1>
+<p>The engine integrates with the major GPU capture and profiling tools used for Vulkan development.</p>
+<h2>Debugging and profiling tools</h2>
+<ul>
+<li><strong>RenderDoc</strong> — programmatic frame captures straight from the editor's debug server: one command launches the editor under RenderDoc, triggers a capture, and lands the <code>.rdc</code> in a deterministic location. Headless capture analysis is included.</li>
+<li><strong>NVIDIA Nsight Graphics</strong> — in-app capture through the NGFX SDK, so the engine can request its own captures while running under Nsight's injection.</li>
+<li><strong>NVIDIA Nsight Systems</strong> — every engine profiling scope emits NVTX ranges. Attach <code>nsys</code> to any build and get the full frame structure on the timeline, with named zones and no special build required.</li>
+<li><strong>AMD Radeon GPU Profiler</strong> — capture orchestration is wired and vendor-gated, ready for Radeon hardware.</li>
+</ul>
+<p>GPU debug labels live in every build configuration, including optimized builds where performance investigations actually happen. Use the one-call GPU tooling preflight to report which tools are attached, so measurements never silently run through a capture layer.</p>
+<p>The rule is simple: measure, then optimize. At 110K instances the engine was CPU main-thread bound; halving GPU frame time moved frame rate by only 0.1%. Honest measurement redirected weeks of potential shader tuning in one afternoon.</p>
+<h2>RenderDoc</h2>
+<p>Run <code>launch_editor renderdoc=true</code> to launch the staged editor under RenderDoc. After the editor is ready, call <code>trigger_capture</code>; it returns the capture path once RenderDoc has finished writing. Captures land at <code>&lt;editor exe dir&gt;/Captures/editor_frameN.rdc</code>, unless <code>GE_RENDERDOC_CAPTURE_DIR</code> or the launch command's <code>captureDir</code> overrides the location.</p>
+<p>For headless analysis, drive <code>qrenderdoc --python &lt;script&gt;</code> over the <code>.rdc</code>. On a fresh profile, dismiss or pre-seed qrenderdoc's analytics dialog before running scripted analysis.</p>
+<h2>Radeon GPU Profiler</h2>
+<p>The RGP capture path is AMD-only and refuses on non-Radeon hardware. It requires an AMD Radeon GPU, a developer-mode driver, and the Radeon Developer Tool Suite. Use the GPU tooling preflight before invoking a capture so the detected vendor and debug-label state are visible.</p>
+<p>See the <a href="https://github.com/Lunarsong/GameEngine/blob/main/Tools/ai/specs/gpu-debugging-guide.md">GPU debugging guide source</a> for the complete workflow and troubleshooting notes.</p>
+</main>
+</body>
+</html>

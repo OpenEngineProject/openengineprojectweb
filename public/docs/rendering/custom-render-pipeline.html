@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Customizable Render Pipeline Guide · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h3 id="customizable-render-pipeline-guide-rendergraph-asset">Customizable Render Pipeline Guide (RenderGraph Asset)</h3>
+<p>This guide explains how to <strong>use</strong> the new data-driven render pipeline system and how to <strong>extend</strong> it with new pass types.</p>
+<hr>
+<h3 id="what-you-get">What you get</h3>
+<ul>
+<li><strong>A new asset type</strong>: <code>RenderPipeline</code> (<code>.rendergraph</code>)</li>
+<li><strong>A runtime pipeline system</strong> in <code>RenderServices</code> that:
+<ul>
+<li>Loads + compiles the pipeline asset into persistent <code>RenderGraph</code> passes/resources</li>
+<li>Only rebuilds when the pipeline content changes (hash-based)</li>
+</ul>
+</li>
+<li><strong>Editor SceneView integration</strong>:
+<ul>
+<li>Scene renders through the active pipeline</li>
+<li>Editor gizmos render <strong>after</strong> the pipeline, on top of its <strong><code>FinalColor</code></strong> output</li>
+</ul>
+</li>
+<li><strong>MVP pass types</strong>:
+<ul>
+<li><code>WorldRender</code> (wraps world/entity rendering)</li>
+<li><code>FullscreenShader</code> (generic fullscreen graphics shader node)</li>
+<li><code>ComputeShader</code> (generic compute dispatch node)</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h3 id="where-the-default-pipeline-lives">Where the default pipeline lives</h3>
+<ul>
+<li>Default pipeline asset path (relative to asset root):
+<ul>
+<li><code>RenderPipelines/Default.rendergraph</code></li>
+</ul>
+</li>
+</ul>
+<p>In the repo, it exists at:</p>
+<ul>
+<li><code>Assets/RenderPipelines/Default.rendergraph</code></li>
+</ul>
+<p>For the Editor, this folder is staged into the Editor’s runtime <code>Assets/</code> folder on build.</p>
+<hr>
+<h3 id="how-the-pipeline-is-used-at-runtime">How the pipeline is used at runtime</h3>
+<h4 id="how-it-is-invoked-each-frame-ecs">How it is invoked each frame (ECS)</h4>
+<p><code>RenderGraphBuildSystem</code> now calls:</p>
+<ul>
+<li><code>RenderServices::EnsureActiveRenderPipelineBuilt(*rg)</code></li>
+</ul>
+<p>That ensures the pipeline’s passes/resources exist in the current <code>RenderGraph</code> before <code>rg->Compile()/Execute()</code>.</p>
+<h4 id="how-to-switch-the-active-pipeline">How to switch the active pipeline</h4>
+<p>Call:</p>
+<ul>
+<li><code>RenderServices::SetActiveRenderPipelinePath("RenderPipelines/MyPipeline.rendergraph");</code></li>
+</ul>
+<p><strong>Notes</strong></p>
+<ul>
+<li>This forces a rebuild on the next <code>EnsureActiveRenderPipelineBuilt(...)</code>.</li>
+<li>The path can be relative to the asset root (recommended) or absolute.</li>
+<li>The Editor also reads <code>rendering.activeRenderPipeline</code> from <code>&#x3C;ProjectRoot>/.Editor/ProjectSettings.json</code> on startup.</li>
+</ul>
+<hr>
+<h3 id="how-sceneview-editor-composes-with-gizmos">How SceneView (Editor) composes with gizmos</h3>
+<p>SceneView does:</p>
+<ul>
+<li>Allocate logical targets (<code>SceneView.ColorMSAA</code>, <code>SceneView.Color</code>, <code>SceneView.Depth</code>)</li>
+<li><code>SetViewTargetsFromRefs(...)</code></li>
+<li><code>EnsureActiveRenderPipelineBuilt(rg)</code> schedules pipeline passes</li>
+<li>Gizmo overlay attaches:
+<ul>
+<li><strong>Color</strong>: pipeline output <code>FinalColor</code> (falls back to <code>SceneView.Color</code>)</li>
+<li><strong>Depth</strong>: <code>SceneView.Depth</code> read-only (depth-testing against the scene)</li>
+</ul>
+</li>
+</ul>
+<p>Pipeline passes default to <code>kWorldRender</code> phase (100). The gizmo overlay is at <code>kOverlay</code> (300), UI at <code>kUI</code> (400), sRGB encode at <code>kFinalize</code> (500), and Present at <code>kPresent</code> (600). This phase ordering guarantees “world first, gizmos on top, UI last” without relying on pass creation order.</p>
+<hr>
+<h3 id="renderpipeline-asset-format-schemaversion-2">RenderPipeline asset format (schemaVersion 2)</h3>
+<p>The asset is JSON. Minimal example that reproduces current behavior:</p>
+<pre><code class="language-json">{
+  "schemaVersion": 2,
+  "pipelineName": "Default",
+  "passes": [
+    { "id": "World", "type": "WorldRender", "enabled": true }
+  ],
+  "outputs": {
+    "FinalColor": "View.Resolve"
+  }
+}
+</code></pre>
+<h4 id="required-fields">Required fields</h4>
+<ul>
+<li><strong><code>schemaVersion</code></strong>: must be <code>2</code></li>
+<li><strong><code>passes</code></strong>: array of pass objects</li>
+</ul>
+<h4 id="recommended-fields">Recommended fields</h4>
+<ul>
+<li><strong><code>pipelineName</code></strong>: used for stable pass/resource naming and debugging</li>
+<li><strong><code>outputs</code></strong>: name -> resource reference mapping (see below)</li>
+</ul>
+<h4 id="pass-ordering-fields-optional">Pass ordering fields (optional)</h4>
+<p>Each pass entry supports optional ordering fields that control how the pass is scheduled relative to other passes:</p>
+<ul>
+<li><strong><code>phase</code></strong>: string or integer. Controls coarse categorical ordering. Named values: <code>"EarlySetup"</code> (0), <code>"WorldRender"</code> (100, default), <code>"PostProcess"</code> (200), <code>"Overlay"</code> (300), <code>"UI"</code> (400), <code>"Finalize"</code> (500), <code>"Present"</code> (600). Custom integer values are accepted for intermediate phases (e.g., 150 for a pass between WorldRender and PostProcess).</li>
+<li><strong><code>tags</code></strong>: array of strings. Tags this pass carries. Other passes can declare ordering dependencies on these tags.</li>
+<li><strong><code>after</code></strong>: array of strings. Tag names this pass should run after. Creates ordering edges to all enabled passes carrying those tags.</li>
+</ul>
+<p>Example with ordering:</p>
+<pre><code class="language-json">{
+  "id": "LightCull",
+  "type": "ComputeShader",
+  "phase": "EarlySetup",
+  "tags": ["light_culling"],
+  "cs": "clustered_light_cull.comp.spv"
+}
+</code></pre>
+<pre><code class="language-json">{
+  "id": "World",
+  "type": "WorldRender",
+  "after": ["light_culling"]
+}
+</code></pre>
+<p>For details on the three-layer ordering system (phases, explicit edges, resource dependencies), see <code>Engine/Modules/Rendering/docs/RenderGraph_Architecture.md</code>.</p>
+<hr>
+<h3 id="resource-references">Resource references</h3>
+<p>Many node fields refer to textures/buffers via a string “ref”.</p>
+<h4 id="built-in-view-refs">Built-in view refs</h4>
+<ul>
+<li><strong><code>View.Color</code></strong>: view’s color attachment</li>
+<li><strong><code>View.Depth</code></strong>: view’s depth attachment</li>
+<li><strong><code>View.Resolve</code></strong>: view’s resolve attachment (or <code>View.Color</code> if no explicit resolve)</li>
+</ul>
+<h4 id="pipeline-defined-resources">Pipeline-defined resources</h4>
+<p>You can declare textures/buffers in <code>resources</code> and reference them by name. The pipeline runtime creates them as <strong>logical RenderGraph resources</strong>.</p>
+<p><strong>MVP resource schema</strong> (minimal; validation is intentionally light right now):</p>
+<pre><code class="language-json">{
+  "resources": {
+    "SceneColor": {
+      "kind": "Texture",
+      "scope": "PerView",
+      "format": "RGBA8_UNORM",
+      "usage": ["RenderTarget", "ShaderResource"],
+      "sampleCount": 1,
+      "extent": { "scale": [1.0, 1.0] }
+    }
+  }
+}
+</code></pre>
+<p>Supported texture <code>format</code> strings (MVP):</p>
+<ul>
+<li><code>RGBA8_UNORM</code>, <code>RGBA8_SRGB</code>, <code>BGRA8_UNORM</code>, <code>BGRA8_SRGB</code>, <code>R16G16B16A16_FLOAT</code>, <code>D24_UNORM_S8_UINT</code>, <code>D32_FLOAT</code></li>
+</ul>
+<p><strong>Important MVP limitation</strong></p>
+<ul>
+<li>Relative sizing currently uses the graph’s backbuffer as the reference. This is good enough for many cases but not yet fully “relative to view target”.</li>
+</ul>
+<hr>
+<h3 id="pass-types-mvp">Pass types (MVP)</h3>
+<h4 id="worldrender"><code>WorldRender</code></h4>
+<p>Schedules world/entity rendering for each active view. Keywords control which shader
+variant is used for all draws in the pass.</p>
+<p>Optional fields:</p>
+<ul>
+<li><code>keywords</code> (string array) — pass-level shader keywords, e.g. <code>"ForwardPlus"</code>, <code>"Instanced"</code></li>
+</ul>
+<p>Example:</p>
+<pre><code class="language-json">{ "id": "World", "type": "WorldRender", "enabled": true, "keywords": ["Instanced"] }
+</code></pre>
+<h4 id="fullscreenshader"><code>FullscreenShader</code></h4>
+<p>Generic fullscreen draw that:</p>
+<ul>
+<li>Attaches a color output (<code>output</code>)</li>
+<li>Declares input texture reads in RenderGraph (<code>inputs</code>)</li>
+<li>Uses <code>.shaderdesc</code> (preferred) to bind <strong>set 0</strong> combined image samplers by <strong>binding name</strong></li>
+</ul>
+<p>Example (tonemap-like):</p>
+<pre><code class="language-json">{
+  "id": "Tonemap",
+  "type": "FullscreenShader",
+  "enabled": true,
+  "inputs": { "HDRColor": "SceneColor" },
+  "output": "View.Resolve",
+  "shaderDesc": "tonemap.shaderdesc",
+  "stages": {
+    "vs": "fullscreen_noinput.vert.spv",
+    "fs": "tonemap.frag.spv"
+  }
+}
+</code></pre>
+<p>Notes / limitations:</p>
+<ul>
+<li>Currently binds <strong>only set 0</strong>.</li>
+<li>Currently uses a single built-in sampler preset (linear clamp).</li>
+<li>Push constants are not driven from node JSON yet (future extension point).</li>
+</ul>
+<h4 id="computeshader"><code>ComputeShader</code></h4>
+<p>Generic compute dispatch. Optional targets can be declared so RenderGraph tracks write hazards:</p>
+<ul>
+<li><code>targetTexture</code> (ref)</li>
+<li><code>targetBuffer</code> (ref)</li>
+</ul>
+<p>Example:</p>
+<pre><code class="language-json">{
+  "id": "MyCompute",
+  "type": "ComputeShader",
+  "enabled": true,
+  "cs": "ubo_copy.comp.spv",
+  "shaderDesc": "minimal_compute.shaderdesc",
+  "dispatch": { "x": 8, "y": 8, "z": 1 },
+  "targetBuffer": "SomeBuffer"
+}
+</code></pre>
+<p>Notes / limitations:</p>
+<ul>
+<li>Descriptor binding is not yet generalized for compute nodes (works for “no-input” or bindless-style compute).</li>
+</ul>
+<hr>
+<h3 id="extending-the-system">Extending the system</h3>
+<h4 id="add-a-new-node-type">Add a new node type</h4>
+<ol>
+<li><strong>Create a node class</strong> implementing <code>IRenderPipelineNode</code>:</li>
+</ol>
+<ul>
+<li><code>Initialize(nodeId, nodeJson, outError)</code></li>
+<li><code>EnsureBuilt(instance, ctx)</code></li>
+</ul>
+<ol start="2">
+<li><strong>Register it</strong> in <code>RenderServices::Initialize()</code> via the node registry:</li>
+</ol>
+<ul>
+<li><code>m_pipelineNodeRegistry->Register("MyNodeType", factory, perView)</code></li>
+</ul>
+<ol start="3">
+<li><strong>Use the instance helpers</strong> to keep performance stable:</li>
+</ol>
+<ul>
+<li><code>RenderPipelineInstance::GetOrCreateGraphicsPass(...)</code></li>
+<li><code>RenderPipelineInstance::GetOrCreateComputePass(...)</code></li>
+<li><code>RenderPipelineInstance::ResolveTextureRef(viewId, "SomeRef")</code></li>
+<li><code>RenderPipelineInstance::ResolveBufferRef(viewId, "SomeRef")</code></li>
+</ul>
+<ol start="4">
+<li>In your pass setup:</li>
+</ol>
+<ul>
+<li>Attach outputs via <code>b.AttachColor(...)</code>, <code>b.AttachDepth(...)</code>, etc.</li>
+<li>Declare reads/writes via <code>b.ReadTexture(...)</code>, <code>b.WriteTexture(...)</code>, <code>b.ReadBuffer(...)</code>, <code>b.WriteBuffer(...)</code></li>
+</ul>
+<p><strong>Rule of thumb</strong>: do not call <code>RenderGraph::CreatePass(...)</code> every frame for stable nodes — always cache via <code>GetOrCreate*Pass</code>.</p>
+<h4 id="add-a-new-output-name">Add a new output name</h4>
+<p>In the asset:</p>
+<pre><code class="language-json">{
+  "outputs": {
+    "FinalColor": "View.Resolve",
+    "SceneColor": "SceneColor"
+  }
+}
+</code></pre>
+<p>At runtime/editor:</p>
+<ul>
+<li><code>RenderServices::GetActivePipelineOutputTextureRef(viewId, "SceneColor")</code></li>
+</ul>
+<h4 id="add-validation-for-node-inputsmaterials">Add validation for node inputs/materials</h4>
+<p>The current MVP already:</p>
+<ul>
+<li>Validates <code>ShaderMeta</code> (push constant limits, etc.) for <code>FullscreenShader</code></li>
+<li>Warns if <code>inputs</code> names don’t exist as bindings in the shader’s <code>.shaderdesc</code></li>
+</ul>
+<p>To extend validation further:</p>
+<ul>
+<li>Prefer <code>.shaderdesc</code> (<code>ShaderDescEnvelope</code>) and validate via <code>ValidateShaderMeta</code>.</li>
+<li>For nodes that reference a <code>.material</code>, validate material properties/textures against meta using:
+<ul>
+<li><code>ValidateMaterialAgainstMeta(meta, input)</code></li>
+</ul>
+</li>
+</ul>
+<hr>
+<h3 id="troubleshooting">Troubleshooting</h3>
+<ul>
+<li><strong>Pipeline not found / doesn’t load</strong>:
+<ul>
+<li>Ensure the file exists under the runtime <code>Assets/</code> folder and has a <code>.meta</code> with <code>type: RenderPipeline</code> (recommended for stable GUIDs).</li>
+</ul>
+</li>
+<li><strong>Fullscreen shader inputs don’t work</strong>:
+<ul>
+<li>Ensure your <code>.shaderdesc</code> uses matching <strong>binding names</strong> for set 0 (e.g., <code>HDRColor</code> in <code>tonemap.shaderdesc</code>).</li>
+</ul>
+</li>
+<li><strong>No post effect visible</strong>:
+<ul>
+<li>Confirm your node is <code>enabled: true</code> and its <code>output</code> is <code>View.Resolve</code> (or is referenced by <code>outputs.FinalColor</code>).</li>
+</ul>
+</li>
+</ul>
+  </main>
+</body>
+</html>

@@ -1,0 +1,63 @@
+---
+import Layout from '../layouts/Layout.astro';
+import OpenEngineSiteNav from '../components/OpenEngineSiteNav.astro';
+import ConstellationBackground from '../components/ConstellationBackground.astro';
+import OpenEngineFooter from '../components/OpenEngineFooter.astro';
+---
+
+<Layout
+	title="Privacy · Open Engine"
+	description="How the Open Engine website handles browser storage and visitor data."
+	ogTitle="Open Engine Privacy"
+>
+	<div class="legal-page">
+		<OpenEngineSiteNav />
+		<ConstellationBackground />
+		<main>
+			<p class="eyebrow">Open Engine website</p>
+			<h1>Privacy</h1>
+			<p class="lede">The site is designed to work without accounts, advertising trackers, or third-party font requests.</p>
+
+			<section>
+				<h2>Browser storage</h2>
+				<p>
+					The Mouse FX preference uses session storage and disappears when the browser session ends.
+				</p>
+				<p>You can clear it at any time by deleting this site’s browser data.</p>
+			</section>
+
+			<section>
+				<h2>Hosting records</h2>
+				<p>
+					The hosting provider may process ordinary request information needed to deliver and protect
+					the site, such as IP address, requested URL, user agent, timestamp, and security events.
+					Open Engine does not add advertising analytics or cross-site tracking to these pages.
+				</p>
+			</section>
+
+			<section>
+				<h2>External links</h2>
+				<p>
+					Links to GitHub and Discord take you to services with their own privacy policies. No content
+					from those services is embedded on this site before you choose to visit them.
+				</p>
+			</section>
+
+			<p class="updated">Last updated: 24 July 2026.</p>
+		</main>
+		<OpenEngineFooter />
+	</div>
+</Layout>
+
+<style>
+	.legal-page { min-height: 100dvh; position: relative; isolation: isolate; padding: 0 max(clamp(20px, 4.5vw, 80px), env(safe-area-inset-right)) 64px max(clamp(20px, 4.5vw, 80px), env(safe-area-inset-left)); overflow-x: clip; background: radial-gradient(circle at 78% 26%, rgba(57,88,168,.13), transparent 34rem), #020205; }
+	.legal-page > :global(:not(.constellation-canvas)) { position: relative; z-index: 1; }
+	main { width: min(100%, 920px); margin: 0 auto; padding: clamp(60px, 10vw, 132px) 0 80px; }
+	.eyebrow, .updated { color: var(--accent-c); font: 600 11px/1.3 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
+	h1 { margin: 18px 0 28px; font-family: Roboto, Inter, sans-serif; font-size: clamp(48px, 8vw, 92px); font-weight: 300; letter-spacing: .05em; text-transform: uppercase; }
+	.lede { max-width: 760px; margin-bottom: 56px; color: #cbc8d3; font-size: clamp(19px, 2.2vw, 26px); font-weight: 300; line-height: 1.55; }
+	section { padding: 30px 0; border-top: 1px solid rgba(255,255,255,.1); }
+	h2 { margin: 0 0 14px; font-size: 23px; font-weight: 500; }
+	section p { margin: 0 0 12px; color: #c7c4d0; font-size: 16px; font-weight: 300; line-height: 1.72; }
+	.updated { margin-top: 42px; color: #8d8998; }
+</style>

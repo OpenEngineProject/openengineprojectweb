@@ -1,0 +1,60 @@
+<article class="card grid-span-full" id="scene-widgets">
+  <header>
+    <h3>Scene View Widgets</h3>
+    <p class="purpose">The current viewport toolbar, transform tools, navigation controls, measurement overlays, and quad-view surface.</p>
+  </header>
+  <div class="card-body">
+    <div class="sceneview-demo" aria-label="Current Scene View controls">
+      <div class="sceneview-demo-toolbar">
+        <div class="sceneview-demo-bookmarks" title="Camera bookmarks">
+          <span class="sceneview-demo-bookmark">1</span>
+          <span class="sceneview-demo-bookmark">2</span>
+          <span class="sceneview-demo-bookmark">+</span>
+        </div>
+        <div class="sceneview-demo-tool active" title="Select"><img src="/icons/editor/arrowmouse.png" alt=""></div>
+        <div class="sceneview-demo-tool" title="Translate"><img src="/icons/editor/GiszmoTranslate.png" alt=""></div>
+        <div class="sceneview-demo-tool" title="Rotate"><img src="/icons/editor/GizmoRotate.png" alt=""></div>
+        <div class="sceneview-demo-tool" title="Scale"><img src="/icons/editor/Giszmo_scale.png" alt=""></div>
+        <div class="mock-spacer"></div>
+        <div class="sceneview-demo-right">
+          <div class="sceneview-demo-control" title="Camera settings"><img src="/icons/editor/videocam.png?v=20260724" alt=""></div>
+          <div class="sceneview-demo-control" title="Grid"><img src="/icons/editor/grid-icon.png" alt=""></div>
+          <div class="sceneview-demo-control" title="Snap"><img src="/icons/editor/magnet.png" alt=""></div>
+          <div class="sceneview-demo-control" title="Gizmos"><img src="/icons/editor/gizmo.png" alt=""></div>
+          <div class="sceneview-demo-control" title="Pick mode"><img src="/icons/editor/arrowmouse.png" alt=""></div>
+          <div class="sceneview-demo-control" title="Global or local space"><img src="/icons/editor/global.png" alt=""></div>
+          <div class="sceneview-demo-control" title="2D or 3D"><img src="/icons/editor/3d.png" alt=""></div>
+          <div class="sceneview-demo-control" title="Projection"><img src="/icons/editor/camera.png" alt=""></div>
+          <div class="sceneview-demo-control" title="Quad view"><img src="/icons/editor/layout3split.png" alt=""></div>
+          <div class="sceneview-demo-control" title="Post-processing"><img src="/icons/editor/post.png" alt=""></div>
+          <div class="sceneview-demo-control" title="Rotation gizmo"><img src="/icons/editor/navgizmo.png" alt=""></div>
+        </div>
+      </div>
+      <div class="sceneview-demo-stage">
+        <div class="sceneview-demo-floating-tools" title="Floating Scene tool overlay">
+          <div class="sceneview-demo-tool active"><img src="/icons/editor/arrowmouse.png" alt=""></div>
+          <div class="sceneview-demo-tool"><img src="/icons/editor/GiszmoTranslate.png" alt=""></div>
+          <div class="sceneview-demo-tool"><img src="/icons/editor/GizmoRotate.png" alt=""></div>
+          <div class="sceneview-demo-tool"><img src="/icons/editor/Ruler.png?v=20260724" alt=""></div>
+        </div>
+        <div class="sceneview-demo-gizmo" title="Viewport rotation gizmo"></div>
+        <div class="sceneview-demo-measure" title="Scene measurement overlay"><span>3.42 m</span></div>
+        <div class="sceneview-demo-status"><span>PERSPECTIVE</span><span>POST FX</span></div>
+      </div>
+    </div>
+    <div class="meta">
+      <span class="pill">SceneViewToolbar</span>
+      <span class="pill">CameraBookmarksWidget</span>
+      <span class="pill">SceneViewRulerOverlay</span>
+      <span class="pill">SceneViewMeasureOverlay</span>
+      <span class="pill">ViewportRotationGizmo</span>
+    </div>
+    <pre>&lt;SceneViewToolbar id="SceneViewToolbar" class="sceneview-toolbar"&gt;
+  &lt;CameraBookmarksWidget id="CameraBookmarks" /&gt;
+&lt;/SceneViewToolbar&gt;
+&lt;SceneViewRulerOverlay id="SceneViewRulerOverlay" /&gt;
+&lt;SceneViewMeasureOverlay id="SceneViewMeasureOverlay" /&gt;
+&lt;ViewportRotationGizmo id="ViewportRotationGizmo" /&gt;</pre>
+    <p class="purpose">Supports floating or inline tools, toolbar reordering, camera and grid settings, pick and transform modes, 2D/3D and projection switching, quad view, post-processing, rulers, metric/imperial measurements, and corner-aware orientation navigation.</p>
+  </div>
+</article>

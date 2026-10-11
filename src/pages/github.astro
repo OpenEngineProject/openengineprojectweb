@@ -1,0 +1,82 @@
+---
+import Layout from '../layouts/Layout.astro';
+import OpenEngineSiteNav from '../components/OpenEngineSiteNav.astro';
+import OpenEngineFooter from '../components/OpenEngineFooter.astro';
+import ConstellationBackground from '../components/ConstellationBackground.astro';
+import PageGradientLayer from '../components/PageGradientLayer.astro';
+---
+
+<Layout title="GitHub · Open Engine · openengineproject.com">
+	<div class="github-page">
+		<OpenEngineSiteNav current="github" />
+		<PageGradientLayer variant="github" />
+		<ConstellationBackground />
+		<div class="shooting-stars" data-shooting-stars aria-hidden="true"></div>
+
+		<main>
+			<p class="eyebrow"><span></span> Repository status</p>
+			<h1><span>Public access</span><span>is on the way.</span></h1>
+			<p class="intro">Open Engine is currently developed in a private repository while we prepare the source, documentation, and contributor experience for public access. It is planned for release under the MIT License.</p>
+
+			<section class="access-card" aria-labelledby="access-heading">
+				<p class="status"><i></i> Preparing public release</p>
+				<h2 id="access-heading">Building a stronger starting point.</h2>
+				<p>We’re organizing the engine, examples, and project documentation so the first public release is practical to explore, build, and contribute to.</p>
+				<a href="https://discord.gg/jyYPNTJ4P2" target="_blank" rel="noopener">Follow progress on Discord <span aria-hidden="true">↗</span></a>
+			</section>
+		</main>
+
+		<OpenEngineFooter pushToBottom />
+	</div>
+</Layout>
+
+<script>
+	const shootingStars = document.querySelector<HTMLElement>('[data-shooting-stars]');
+	const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+if (shootingStars) {
+		function launchShootingStar() {
+			if (document.hidden) return;
+			const star = document.createElement('i');
+			star.style.setProperty('--start-x', `${8 + Math.random() * 84}%`);
+			star.style.setProperty('--start-y', `${-8 + Math.random() * 45}%`);
+			star.style.setProperty('--travel-x', `${220 + Math.random() * 280}px`);
+			star.style.setProperty('--travel-y', `${300 + Math.random() * 360}px`);
+			star.style.setProperty('--duration', `${0.75 + Math.random() * 0.7}s`);
+			shootingStars.append(star);
+			star.addEventListener('animationend', () => star.remove());
+		}
+
+		function scheduleShootingStar() {
+			launchShootingStar();
+		window.setTimeout(scheduleShootingStar, reduceMotion ? 5000 + Math.random() * 3000 : 1800 + Math.random() * 4200);
+	}
+
+	window.setTimeout(scheduleShootingStar, reduceMotion ? 900 : 700);
+}
+</script>
+
+<style>
+	.github-page { --page-pad-left: max(clamp(14px, 4.5vw, 80px), env(safe-area-inset-left, 0px)); --page-pad-right: max(clamp(14px, 4.5vw, 80px), env(safe-area-inset-right, 0px)); min-height: 100dvh; position: relative; isolation: isolate; display: flex; flex-direction: column; padding: 0 var(--page-pad-right) max(clamp(28px, 6vw, 48px), env(safe-area-inset-bottom, 0px)) var(--page-pad-left); overflow: hidden; background: #000; }
+	.github-page > :global(:not(.constellation-canvas):not(.shooting-stars):not(.page-gradient-layer)) { position: relative; z-index: 2; }
+	.github-page > :global(.constellation-canvas) { z-index: 1; }
+	.shooting-stars { position: fixed; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
+	.shooting-stars i { position: absolute; left: var(--start-x); top: var(--start-y); width: clamp(110px, 13vw, 210px); height: 2px; border-radius: 999px; background: linear-gradient(90deg, transparent, rgba(170,238,255,.95)); box-shadow: 0 0 8px rgba(140,223,255,.8), 0 0 18px rgba(140,223,255,.35); opacity: 0; transform: rotate(53deg); transform-origin: left center; animation: shooting-star var(--duration) linear forwards; }
+	@keyframes shooting-star { 0% { opacity: 0; transform: rotate(53deg) translate3d(0, 0, 0); } 12% { opacity: .95; } 100% { opacity: 0; transform: rotate(53deg) translate3d(var(--travel-x), var(--travel-y), 0); } }
+	main { width: min(980px, 100%); margin: auto; padding: clamp(72px, 11vw, 150px) 0 clamp(64px, 9vw, 110px); }
+	.eyebrow { display: flex; align-items: center; gap: 9px; margin: 0 0 18px; color: var(--muted); font: 600 11px/1.4 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
+	.eyebrow span { width: 7px; height: 7px; background: var(--accent-c); box-shadow: 0 0 18px rgba(110,231,255,.8); }
+	h1 { max-width: 880px; margin: 0; font-family: 'Roboto', Inter, ui-sans-serif, sans-serif; font-size: clamp(36px, 5.8vw, 74px); font-weight: 300; line-height: .98; letter-spacing: .075em; text-transform: uppercase; background: linear-gradient(104deg, #fff 18%, #99e9ff 56%, #9d87ff 82%, #ff72db); -webkit-background-clip: text; background-clip: text; color: transparent; }
+	h1 span { display: block; }
+	.intro { max-width: 690px; margin: 30px 0 0; color: #aaa8ba; font-size: clamp(17px, 1.45vw, 21px); line-height: 1.62; }
+	.access-card { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(260px, .9fr); gap: 18px 70px; margin-top: clamp(58px, 8vw, 96px); padding: clamp(28px, 4vw, 48px); border: 1px solid rgba(255,255,255,.09); background: rgba(8,8,12,.72); box-shadow: 0 20px 70px rgba(0,0,0,.28); }
+	.status { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; width: fit-content; margin: 0; padding: 7px 10px; border: 1px solid rgba(255,255,255,.13); border-radius: 999px; background: rgba(0,0,0,.78); color: #b6f7d1; font-family: inherit; font-size: 11px; font-weight: 500; line-height: 1.3; letter-spacing: .075em; text-transform: uppercase; }
+	.status i { width: 7px; height: 7px; border-radius: 50%; background: #62e99c; box-shadow: 0 0 13px rgba(98,233,156,.7); }
+	.access-card h2 { margin: 0; font-family: 'Roboto', Inter, ui-sans-serif, sans-serif; font-size: clamp(28px, 4.4vw, 52px); font-weight: 300; line-height: 1.05; letter-spacing: .045em; text-transform: uppercase; }
+	.access-card > p:not(.status) { margin: 0; color: #a3a1b3; font-size: 15px; line-height: 1.68; }
+	.access-card a { grid-column: 2; justify-self: start; color: var(--accent-c); font-size: 13px; font-weight: 650; text-decoration: none; }
+	.access-card a:hover { color: #fff; }
+	.foot { margin-top: auto; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.08); text-align: center; color: var(--muted); font-size: 13px; }
+	.foot a { color: inherit; text-decoration-color: rgba(182,178,191,.24); text-underline-offset: 3px; }
+	@media (max-width: 660px) { main { padding-top: 58px; } h1 { font-size: clamp(36px, 13vw, 60px); } .access-card { grid-template-columns: 1fr; gap: 18px; padding: 24px; } .access-card a { grid-column: 1; } }
+</style>

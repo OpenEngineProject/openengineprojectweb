@@ -1,0 +1,533 @@
+---
+import Layout from '../layouts/Layout.astro';
+import OpenEngineSiteNav from '../components/OpenEngineSiteNav.astro';
+import OpenEngineFooter from '../components/OpenEngineFooter.astro';
+import ConstellationBackground from '../components/ConstellationBackground.astro';
+import PageGradientLayer from '../components/PageGradientLayer.astro';
+import downloadManifest from '../data/editor-downloads.json';
+
+const channelDefinitions = [
+	{
+		number: '01',
+		label: 'Recommended channel',
+		name: 'Main',
+		branch: 'main',
+		description:
+			'Latest tested work from the main branch. Recommended for regular use and evaluating integrated engine and editor features.',
+		accent: 'stable',
+	},
+	{
+		number: '02',
+		label: 'Preview channel',
+		name: 'Development',
+		branch: 'develop',
+		description:
+			'Latest work from the development branch. Expect faster changes, incomplete features, and occasional breakage.',
+		accent: 'experimental',
+	},
+] as const;
+
+const platformDefinitions = [
+	{ key: 'linux', name: 'Linux', detail: 'x64', mark: 'LNX' },
+	{ key: 'macos', name: 'macOS', detail: 'Apple silicon', mark: 'MAC' },
+	{ key: 'windows', name: 'Windows', detail: 'PC · x64', mark: 'WIN' },
+] as const;
+
+const formatBytes = (bytes: number) => {
+	if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+	return `${Math.max(1, Math.round(bytes / 1024 ** 2))} MB`;
+};
+
+const formatBuildDate = (date: string | null) =>
+	date
+		? new Intl.DateTimeFormat('en', {
+				day: 'numeric',
+				month: 'short',
+				year: 'numeric',
+				timeZone: 'UTC',
+			}).format(new Date(date))
+		: 'Pending';
+
+const channels = channelDefinitions.map((definition) => {
+	const build = downloadManifest.channels[definition.branch];
+	return {
+		...definition,
+		build,
+		buildDate: formatBuildDate(build.buildDate),
+		buildDateIso: build.buildDate ?? undefined,
+		commit: build.commit?.slice(0, 7),
+		platforms: platformDefinitions.map((platform) => ({
+			...platform,
+			artifact:
+				platform.key in build.platforms
+					? build.platforms[platform.key as keyof typeof build.platforms]
+					: undefined,
+		})),
+	};
+});
+
+---
+
+<Layout
+	title="Download · Open Engine · openengineproject.com"
+	description="Download Open Engine builds for Windows, macOS, and Linux, or inspect the exact source commit behind each build channel."
+	ogTitle="Download Open Engine"
+>
+	<div class="download-page">
+		<OpenEngineSiteNav current="download" />
+		<PageGradientLayer variant="download" />
+		<ConstellationBackground />
+
+		<main>
+			<section class="download-hero">
+				<p class="eyebrow"><span></span> Open Engine builds</p>
+				<h1>Download<br />Open Engine.</h1>
+				<p class="intro">
+					Choose Main for the stable channel, or Development for an earlier look at work in
+					development.
+				</p>
+			</section>
+
+			<section class="channel-grid" aria-label="Open Engine download channels">
+				{
+					channels.map((channel) => (
+						<article class={`channel-card channel-card--${channel.accent}`}>
+							<header class="channel-header">
+								<div>
+									<p class="channel-index">{channel.number} · {channel.label}</p>
+									<h2>{channel.name}</h2>
+								</div>
+								<p class="channel-status">
+									<i></i> Builds
+								</p>
+							</header>
+
+							<p class="channel-description">{channel.description}</p>
+
+							<div class="platform-list" aria-label={`${channel.name} platform downloads`}>
+								{
+									channel.platforms.map((platform) =>
+										platform.artifact ? (
+										<a class="platform-download" href={platform.artifact.downloadUrl}>
+											<span class="platform-mark" aria-hidden="true">{platform.mark}</span>
+											<span class="platform-copy">
+												<strong>{platform.name}</strong>
+												<small>{platform.artifact.architecture}</small>
+											</span>
+											<span class="platform-meta">
+												<span class="platform-state">
+													Download · {formatBytes(platform.artifact.sizeBytes)}
+												</span>
+												<time class="platform-date" datetime={channel.buildDateIso}>
+													Build · {channel.buildDate}
+												</time>
+											</span>
+										</a>
+										) : (
+										<div class="platform-download" aria-disabled="true">
+											<span class="platform-mark" aria-hidden="true">{platform.mark}</span>
+											<span class="platform-copy">
+												<strong>{platform.name}</strong>
+												<small>{platform.detail}</small>
+											</span>
+											<span class="platform-meta">
+												<span class="platform-state">Preparing</span>
+												<span class="platform-date">Awaiting first build</span>
+											</span>
+										</div>
+										)
+									)
+								}
+							</div>
+
+							<footer class="channel-footer">
+								<span>Source used for this channel</span>
+								{
+									channel.build.commitUrl && channel.commit ? (
+										<a href={channel.build.commitUrl} target="_blank" rel="noopener">
+											Commit {channel.commit} <span aria-hidden="true">↗</span>
+										</a>
+									) : channel.build.releaseUrl ? (
+										<a href={channel.build.releaseUrl} target="_blank" rel="noopener">
+											Preview release <span aria-hidden="true">↗</span>
+										</a>
+									) : (
+										<span>Awaiting first published build</span>
+									)
+								}
+							</footer>
+						</article>
+					))
+				}
+			</section>
+
+		</main>
+
+		<OpenEngineFooter />
+	</div>
+</Layout>
+
+<style>
+	.download-page {
+		--page-pad-left: max(clamp(14px, 4.5vw, 80px), env(safe-area-inset-left, 0px));
+		--page-pad-right: max(clamp(14px, 4.5vw, 80px), env(safe-area-inset-right, 0px));
+		min-height: 100dvh;
+		position: relative;
+		isolation: isolate;
+		padding: 0 var(--page-pad-right) max(clamp(28px, 6vw, 48px), env(safe-area-inset-bottom, 0px)) var(--page-pad-left);
+		overflow: hidden;
+		background: #000;
+	}
+
+	.download-page::before {
+		content: '';
+		position: absolute;
+		z-index: 0;
+		inset: 0 0 auto;
+		height: min(900px, 92vh);
+		pointer-events: none;
+		background:
+			radial-gradient(ellipse at 48% 0%, rgba(74, 86, 178, .2), transparent 58%),
+			radial-gradient(ellipse at 8% 34%, rgba(139, 53, 155, .17), transparent 48%);
+	}
+
+	.download-page > :global(:not(.constellation-canvas):not(.page-gradient-layer)) {
+		position: relative;
+		z-index: 2;
+	}
+
+	.download-page > :global(.constellation-canvas) {
+		z-index: 1;
+	}
+
+	main {
+		width: min(1480px, 100%);
+		margin: 0 auto;
+		padding: clamp(72px, 9vw, 132px) 0 0;
+	}
+
+	.download-hero {
+		max-width: 890px;
+	}
+
+	.eyebrow,
+	.channel-index {
+		font: 600 13px/1.4 var(--font-mono);
+		letter-spacing: .14em;
+		text-transform: uppercase;
+	}
+
+	.eyebrow {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin: 0 0 20px;
+		color: var(--muted);
+	}
+
+	.eyebrow span {
+		width: 7px;
+		height: 7px;
+		background: var(--accent-c);
+		box-shadow: 0 0 18px rgba(110, 231, 255, .75);
+	}
+
+	h1,
+	h2 {
+		font-family: 'Roboto', Inter, ui-sans-serif, sans-serif;
+		font-weight: 300;
+		text-transform: uppercase;
+	}
+
+	h1 {
+		margin: 0;
+		font-size: clamp(44px, 7.2vw, 102px);
+		line-height: .91;
+		letter-spacing: .055em;
+		background: linear-gradient(104deg, #fff 12%, #a8efff 53%, #9e8cff 78%, #ee75d8);
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+	}
+
+	.intro {
+		max-width: 720px;
+		margin: 30px 0 0;
+		color: #aaa8b7;
+		font-size: clamp(17px, 1.5vw, 22px);
+		line-height: 1.62;
+	}
+
+	.channel-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: clamp(18px, 2.2vw, 34px);
+		margin-top: clamp(62px, 8vw, 112px);
+	}
+
+	.channel-card {
+		--card-accent: 110, 231, 255;
+		display: flex;
+		flex-direction: column;
+		min-height: 570px;
+		padding: clamp(25px, 3.2vw, 42px);
+		border: 1px solid rgba(var(--card-accent), .28);
+		background:
+			linear-gradient(145deg, rgba(var(--card-accent), .075), transparent 46%),
+			rgba(8, 10, 16, .86);
+		box-shadow: 0 28px 90px rgba(0, 0, 0, .3);
+		backdrop-filter: blur(14px);
+		transition: border-color .25s ease, box-shadow .45s ease, transform .25s ease;
+	}
+
+	.channel-card--experimental {
+		--card-accent: 207, 104, 239;
+	}
+
+	.channel-card:hover {
+		border-color: rgba(var(--card-accent), .62);
+		box-shadow:
+			0 28px 90px rgba(0, 0, 0, .36),
+			0 0 48px rgba(var(--card-accent), .13);
+		transform: translateY(-3px) scale(1.005);
+	}
+
+	.channel-header {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: flex-start;
+		gap: 20px;
+	}
+
+	.channel-header > div {
+		min-width: 0;
+	}
+
+	.channel-index {
+		margin: 0 0 22px;
+		color: rgba(211, 208, 224, .68);
+	}
+
+	.channel-header h2 {
+		margin: 0;
+		font-size: clamp(32px, 3.4vw, 54px);
+		line-height: 1;
+		letter-spacing: .045em;
+	}
+
+	.channel-status {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		flex: 0 0 auto;
+		margin: 0;
+		padding: 7px 10px;
+		border: 1px solid rgba(var(--card-accent), .32);
+		border-radius: 999px;
+		background: rgba(var(--card-accent), .07);
+		color: rgb(var(--card-accent));
+		font: 600 12px/1.2 var(--font-mono);
+		letter-spacing: .1em;
+		text-transform: uppercase;
+		justify-self: end;
+	}
+
+	.channel-status i {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: currentColor;
+		box-shadow: 0 0 12px currentColor;
+	}
+
+	.channel-description {
+		max-width: 620px;
+		margin: 26px 0 0;
+		color: #a8a6b5;
+		font-size: 16px;
+		line-height: 1.68;
+	}
+
+	.platform-list {
+		display: grid;
+		gap: 10px;
+		margin-top: 35px;
+	}
+
+	.platform-download {
+		display: grid;
+		grid-template-columns: 48px minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 15px;
+		min-height: 74px;
+		padding: 12px 16px 12px 12px;
+		border: 1px solid rgba(255, 255, 255, .08);
+		background: rgba(0, 0, 0, .34);
+		color: #d9d6e4;
+		transition:
+			transform .22s ease,
+			border-color .22s ease,
+			background .22s ease,
+			box-shadow .35s ease;
+	}
+
+	a.platform-download {
+		cursor: pointer;
+		text-decoration: none;
+	}
+
+	.platform-download[aria-disabled='true'] {
+		cursor: not-allowed;
+	}
+
+	a.platform-download:hover {
+		transform: translateX(3px);
+		border-color: rgba(var(--card-accent), .42);
+		background: rgba(var(--card-accent), .075);
+		box-shadow: 0 0 28px rgba(var(--card-accent), .1);
+	}
+
+	.platform-mark {
+		display: grid;
+		place-items: center;
+		width: 48px;
+		height: 48px;
+		border: 1px solid rgba(var(--card-accent), .25);
+		background: rgba(var(--card-accent), .06);
+		color: rgb(var(--card-accent));
+		font: 600 11px/1 var(--font-mono);
+		letter-spacing: .08em;
+		transition: border-color .22s ease, background .22s ease, box-shadow .35s ease;
+	}
+
+	a.platform-download:hover .platform-mark {
+		border-color: rgba(var(--card-accent), .56);
+		background: rgba(var(--card-accent), .12);
+		box-shadow: 0 0 18px rgba(var(--card-accent), .11);
+	}
+
+	.platform-copy {
+		display: grid;
+		gap: 4px;
+	}
+
+	.platform-meta {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		justify-content: flex-end;
+		gap: 4px;
+		text-align: right;
+	}
+
+	.platform-copy strong {
+		font-size: 15px;
+		font-weight: 600;
+	}
+
+	.platform-copy small,
+	.platform-state,
+	.platform-date {
+		color: #777583;
+		font: 500 12px/1.35 var(--font-mono);
+		letter-spacing: .08em;
+		text-transform: uppercase;
+	}
+
+	.platform-date {
+		order: -1;
+		color: #9996a5;
+		font-size: 12px;
+	}
+
+	.channel-footer {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 18px;
+		margin-top: auto;
+		padding-top: 28px;
+		border-top: 1px solid rgba(255, 255, 255, .08);
+		color: #777583;
+		font: 500 12px/1.45 var(--font-mono);
+		letter-spacing: .08em;
+		text-transform: uppercase;
+	}
+
+	.channel-footer a {
+		color: rgb(var(--card-accent));
+		text-decoration: none;
+	}
+
+	.channel-footer a:hover {
+		color: #fff;
+	}
+
+	@media (max-width: 900px) {
+		.channel-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.channel-card {
+			min-height: 0;
+		}
+
+		.channel-footer {
+			margin-top: 34px;
+		}
+	}
+
+	@media (max-width: 560px) {
+		main {
+			padding-top: 56px;
+		}
+
+		h1 {
+			font-size: clamp(38px, 15vw, 60px);
+		}
+
+		.channel-header {
+			grid-template-columns: 1fr;
+		}
+
+		.channel-footer {
+			align-items: flex-start;
+			flex-direction: column;
+		}
+
+		.channel-status {
+			order: -1;
+			justify-self: start;
+		}
+
+		.platform-download {
+			grid-template-columns: 42px minmax(0, 1fr);
+		}
+
+		.platform-mark {
+			width: 42px;
+			height: 42px;
+		}
+
+		.platform-meta {
+			grid-column: 2;
+			align-items: flex-start;
+			justify-content: flex-start;
+			text-align: left;
+		}
+
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.channel-card,
+		.platform-download,
+		.platform-mark {
+			transition: none;
+		}
+
+		.channel-card:hover,
+		a.platform-download:hover {
+			transform: none;
+		}
+	}
+</style>

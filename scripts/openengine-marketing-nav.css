@@ -1,0 +1,168 @@
+/* Injected into synced GameEngine docs; matches openengine.dev home .nav (index.astro). */
+html:has(body.oe-with-marketing-nav) {
+	overflow-x: clip;
+}
+
+/*
+ * Stacked layout: full-width sticky bar, then [ sidebar | main ]. The sidebar must not
+ * slide over the bar when scrolling, so sticky top matches the bar’s block size (approx).
+ */
+body.oe-with-marketing-nav {
+	--oe-nav-fg: #f5f3ff;
+	--oe-nav-muted: #a5a3b8;
+	--oe-nav-accent: #6ee7ff;
+	/* Match sticky bar height: padding-block + uppercase link row + bottom border (~1px). */
+	--oe-sticky-marketing-offset: 56px;
+
+	display: flex;
+	flex-direction: column;
+	flex-wrap: nowrap;
+	align-items: stretch;
+	gap: 0;
+	row-gap: 0;
+	column-gap: 0;
+	min-height: 100vh;
+	width: 100%;
+	max-width: 100%;
+	overflow-x: clip;
+	margin: 0;
+	padding: 0;
+}
+
+/* Flex column + min-width:0 prevent the doc grid from overflowing horizontally. */
+body.oe-with-marketing-nav > .shell {
+	flex: 1 1 auto;
+	min-width: 0;
+	width: 100%;
+	min-height: 0;
+	min-height: calc(100dvh - var(--oe-sticky-marketing-offset));
+}
+
+body.oe-with-marketing-nav .shell > .sidebar {
+	top: var(--oe-sticky-marketing-offset);
+	height: calc(100vh - var(--oe-sticky-marketing-offset));
+	max-height: calc(100vh - var(--oe-sticky-marketing-offset));
+	z-index: 1;
+	/* Match marketing nav horizontal inset so the sidebar title lines up with “Open Engine”. */
+	padding-left: max(clamp(14px, 4.5vw, 80px), env(safe-area-inset-left, 0px));
+	padding-right: 18px;
+}
+
+@media (max-width: 720px) {
+	body.oe-with-marketing-nav {
+		/* Wrapped links + 44px tap targets stack the bar taller; keep sticky pane below it. */
+		--oe-sticky-marketing-offset: 112px;
+	}
+
+	body.oe-with-marketing-nav .shell > .sidebar {
+		top: auto;
+		height: auto;
+		max-height: none;
+	}
+}
+
+.oe-marketing-nav {
+	position: sticky;
+	top: 0;
+	z-index: 10000;
+	flex: 0 0 auto;
+	flex-shrink: 0;
+	align-self: stretch;
+	width: 100%;
+	margin: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	gap: 16px;
+	box-sizing: border-box;
+	margin-inline: 0;
+	padding-inline: max(clamp(14px, 4.5vw, 80px), env(safe-area-inset-left, 0px))
+		max(clamp(14px, 4.5vw, 80px), env(safe-area-inset-right, 0px));
+	padding-block-start: max(clamp(14px, 3vw, 24px), env(safe-area-inset-top, 0px));
+	padding-block-end: 12px;
+	background: rgba(0, 0, 0, 0.88);
+	backdrop-filter: blur(14px);
+	-webkit-backdrop-filter: blur(14px);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+	font-family:
+		Inter,
+		ui-sans-serif,
+		system-ui,
+		-apple-system,
+		'Segoe UI',
+		Roboto,
+		'Helvetica Neue',
+		Arial,
+		sans-serif;
+}
+
+.oe-marketing-nav-inner {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	align-items: center;
+	gap: 12px 20px;
+	min-width: 0;
+	flex: none;
+	max-width: 100%;
+	overflow-x: visible;
+}
+
+.oe-marketing-nav a {
+	color: var(--oe-nav-muted);
+	text-decoration: none;
+	font-size: 13px;
+	font-weight: 400;
+	line-height: 1.55;
+	text-transform: uppercase;
+	letter-spacing: 0.12em;
+	transition: color 0.15s ease;
+}
+
+.oe-marketing-nav a:hover {
+	color: var(--oe-nav-fg);
+}
+
+.oe-marketing-nav a:focus-visible {
+	outline: 2px solid var(--oe-nav-accent);
+	outline-offset: 3px;
+	border-radius: 4px;
+}
+
+.oe-marketing-nav a[aria-current='page'] {
+	color: var(--oe-nav-fg);
+}
+
+@media (max-width: 720px) {
+	.oe-marketing-nav a.nav-brand {
+		display: none;
+	}
+
+	.oe-marketing-nav {
+		gap: 10px;
+	}
+
+	.oe-marketing-nav-inner {
+		gap: 8px 10px;
+		justify-content: center;
+	}
+
+	.oe-marketing-nav a {
+		font-size: 12px;
+		line-height: 1.52;
+		padding: 10px 12px;
+		min-height: 44px;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 8px;
+	}
+}
+
+@media (max-width: 380px) {
+	.oe-marketing-nav a {
+		font-size: 12px;
+		padding-inline: 8px;
+		min-height: 40px;
+	}
+}

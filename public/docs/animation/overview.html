@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Humanoid Retargeting Overview · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="humanoid-retargeting--high-level-overview">Humanoid Retargeting — High-Level Overview</h1>
+<blockquote>
+<p><strong>Status:</strong> The CPU retargeting path is available in the editor. GPU orchestration and broader importer coverage remain under active development.</p>
+</blockquote>
+<blockquote>
+<p><strong>Goal:</strong> A unified runtime humanoid retargeting system for different rig layouts, attachments, and IK workflows.</p>
+</blockquote>
+<hr>
+<h2 id="what-is-humanoid-retargeting">What is humanoid retargeting?</h2>
+<p>Animation data on one character (the <strong>source rig</strong>) gets played on another character (the <strong>target rig</strong>) without manual rework — even when the two rigs differ in:</p>
+<ul>
+<li>Bone naming conventions (<code>mixamorig:LeftArm</code> vs <code>LeftShoulder</code> vs <code>Bip001 L Shoulder</code>).</li>
+<li>Bone hierarchy (3-bone spine vs 5-bone spine).</li>
+<li>Body proportions (tall thin character receiving short stocky character’s clip).</li>
+<li>Bind pose orientation (Mixamo’s T-pose bind vs Synty’s A-pose bind).</li>
+</ul>
+<p>A correct retargeter makes “play this Mixamo walk on my Synty character” a one-line operation. Done well, this is invisible: the artist clicks Play and the character walks. Done poorly, characters end up frozen in T-pose, splayed sideways, with feet sliding above the ground.</p>
+<h2 id="the-new-architecture-in-60-seconds">The new architecture in 60 seconds</h2>
+<p>Three asset types, one ECS component/system, one animation graph node:</p>
+<pre><code>SkeletonProfile     ← reusable canonical schema (HumanoidStandard.profile, HumanoidElf.profile, ...)
+       ↑
+HumanoidRig         ← per-skeletal-mesh: bone map, retarget pose, chains, attachments, body proportions
+       ↑
+RetargetMap         ← source→target pairing: per-chain settings, IK config, op stack
+       ↑
+HumanoidRetargeterComponent + HumanoidRetargetSystem + RetargetNode  ← runtime evaluator
+</code></pre>
+<p>(v2/v3 renamed <code>RetargetSource</code> → <code>HumanoidRig</code> and <code>RetargetSession</code> → <code>RetargetMap</code>; both source and target are HumanoidRigs, and the Map is a static authored mapping not runtime state.)</p>
+<p>The architecture separates the authored retarget pose from the imported bind pose, stores reusable canonical skeleton profiles, and evaluates retargeting at runtime so a source clip can be reused across compatible target characters.</p>
+<h2 id="the-pipeline-6-stages">The pipeline (6 stages)</h2>
+<p>For each character, every frame:</p>
+<ol>
+<li><strong>Sample</strong> the source animation onto the source skeleton (existing path).</li>
+<li><strong>Encode</strong> as deltas relative to the <em>retarget pose</em> (not bind pose).</li>
+<li><strong>Apply FK</strong> to the target via canonical-axis-frame transport, with <code>OneToOne</code> for matching chains and <code>Interpolated</code> for unequal lengths.</li>
+<li><strong>Generate IK goals</strong> from source chain-tip world positions, scaled by per-axis body proportion ratios.</li>
+<li><strong>Run IK</strong> — TwoBoneIK for limbs (analytical), FABRIK for spine (iterative).</li>
+<li><strong>Op stack</strong> — FootLock, LookAt, AttachmentPassthrough, BodyIntersect, HandLock; user-orderable, extensible.</li>
+</ol>
+<p>Stages 1-3 fix bind-orientation differences. Stage 4-5 fix proportion mismatches. Stage 6 handles game-specific behaviors and accessories.</p>
+<h2 id="when-is-humanoidretargetercomponent-needed">When is <code>HumanoidRetargeterComponent</code> needed?</h2>
+<p><strong>Implicit (default UX)</strong> — the editor adds it automatically when a clip’s skeleton doesn’t match the entity’s. The user clicks “OK” on a one-time banner (“Clip ‘X’ uses a different skeleton; setting up retargeting via ‘X_to_Y.retargetmap.json’”) and from then on it Just Works. Silenceable per-folder for trusted asset libraries.</p>
+<p><strong>Explicit (power users)</strong> — add the component directly when you want fine control: custom op stack ordering, hand-edited retarget pose, multiple sources through <code>AnimationGraphPlayer</code>, peer-entity source mode (v2). Same component, no different schema.</p>
+<p><strong>Same-skeleton</strong> — no component. The component’s overhead is paid only when actual retargeting is needed.</p>
+<h2 id="gpu-resident-pipeline-v4">GPU-resident pipeline (v4)</h2>
+<p>Stages 0-5 of the 6-stage pipeline are GPU-resident by default. The engine’s existing infrastructure (<code>MeshGPURegistry</code>, <code>DrawBatchCompactor</code>, <code>SkinPaletteAtlas</code> SSBO, <code>AnimationComputePass</code>) is built around GPU-resident skinning; CPU-only retargeting would force a readback that breaks instanced batching.</p>
+<p>Output writes directly to <code>SkinPaletteAtlas</code>. The existing instanced draw path (<code>WorldDrawBuilder + DrawBatchCompactor</code>) consumes the palette unchanged — retargeted instances batch identically to non-retargeted ones, no rasterization-side divergence.</p>
+<p>Stage 6 op stack is split: GPU-friendly ops (<code>AttachmentPassthroughOp</code>, <code>LookAtOp</code>) ship as compute kernels. CPU-resident ops (<code>FootLockOp</code> needs terrain query, <code>BodyIntersectOp</code> needs SDF) run after a partial readback for the bones they touch.</p>
+<p>CPU path stays as a fallback for editor preview, debugging, and the Phase 3 visual-fix ship gate (deterministic + debuggable). Selected via <code>r.RetargetCPU=1</code>. CI runs both paths and cross-validates within ≤1e-4° per bone.</p>
+<h2 id="what-this-gets-the-user">What this gets the user</h2>
+<ul>
+<li><strong>Visual correctness:</strong> Mixamo, Synty, MetaHuman, VRM clips all play correctly on any humanoid target — including the long-broken Synty A-pose-source case.</li>
+<li><strong>Foot contact:</strong> No more sliding feet across body-proportion mismatches.</li>
+<li><strong>Attachments:</strong> Cloaks, sheaths, quivers, hair anchors animate correctly on retargeted characters.</li>
+<li><strong>Open-spec interop:</strong> glTF KHR_humanoid and VRM 1.0 imports work without plugins.</li>
+<li><strong>Composability:</strong> Retarget is one anim graph node; layered blends and montages compose around it.</li>
+<li><strong>Authoring workflow:</strong> Body-diagram editor handles the fallback when auto-import gets a corner case wrong.</li>
+<li><strong>Performance:</strong> Crowd-scene-friendly; ECS-parallel; future-proof for GPU compute.</li>
+<li><strong>Extensibility:</strong> Op stack registers custom game-specific behaviors without engine recompile.</li>
+</ul>
+<h2 id="what-this-does-not-do">What this does <em>not</em> do</h2>
+<ul>
+<li>Non-humanoid rigs (quadrupeds, tentacles, vehicles). Generic skeleton animation handles those.</li>
+<li>Cloth simulation. Separate Chaos-Cloth-style pass.</li>
+<li>Facial blendshape retargeting. Separate face system; schema reserved.</li>
+<li>Authored Control-Rig-style runtime rigs. Out of scope; retarget is the contract.</li>
+</ul>
+<h2 id="inventory-new-assets-components-files">Inventory: new assets, components, files</h2>
+<h3 id="asset-types-json-guid-keyed-hot-reload-watched">Asset types (JSON, GUID-keyed, hot-reload-watched)</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Type</th><th>Filename pattern</th><th>Where it lives</th><th>Purpose</th></tr></thead><tbody><tr><td><code>SkeletonProfile</code> (default)</td><td><code>HumanoidStandard.profile.json</code></td><td>Editor mount: <code>Apps/Editor/Assets/SkeletonProfiles/HumanoidStandard.profile.json</code> (repo) → <code>build/&#x3C;preset>/bin/&#x3C;config>/Apps/Editor/Assets/SkeletonProfiles/...</code> (runtime), resolved via <code>editor:</code> alias</td><td>Engine-available canonical 60-bone humanoid profile; auto-import default</td></tr><tr><td><code>SkeletonProfile</code> (custom)</td><td><code>*.profile.json</code></td><td>Project mount: <code>Assets/SkeletonProfiles/&#x3C;Custom>.profile.json</code></td><td>User-authored profiles for stylized characters (e.g., <code>HumanoidElf.profile.json</code>)</td></tr><tr><td><code>HumanoidRig</code></td><td><code>*.humanoidrig.json</code></td><td>next to each FBX/glTF, e.g., <code>Assets/Models/FBXTest/BusinessMale.humanoidrig.json</code></td><td>Per-mesh metadata: profile ref, bone map, retarget pose, chains, attachments, body proportions</td></tr><tr><td><code>RetargetMap</code></td><td><code>*.retargetmap.json</code></td><td><code>Assets/Animations/Retargeting/&#x3C;Source>_to_&#x3C;Target>.retargetmap.json</code></td><td>Source→target pairing: chain map (per-chain rotation/translation/IK), op stack</td></tr></tbody></table>
+<h3 id="cache-files-derived-not-source-controlled">Cache files (derived; not source-controlled)</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>File</th><th>Path</th></tr></thead><tbody><tr><td>Baked clip cache</td><td><code>&#x3C;projectDir>/.cache/retarget/&#x3C;SourceRigGUID>/&#x3C;ClipGUID>.cache.bin</code> (Formulation A baked rotation keys; rebuilt on rig/clip/retarget-pose change)</td></tr></tbody></table>
+<h3 id="ecs-components">ECS components</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Component</th><th>Purpose</th></tr></thead><tbody><tr><td><code>HumanoidRetargeterComponent</code></td><td>Pure declarative config: <code>{ Map, SourceClip, ClipTimeSeconds, Enabled, IKEnabled, IKBlendAlpha, AutoBootstrap }</code>.</td></tr></tbody></table>
+<h3 id="ecs-systems">ECS systems</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>System</th><th>Purpose</th></tr></thead><tbody><tr><td><code>HumanoidRetargetSystem</code></td><td>Owns runtime retarget state; replaces cross-rig dispatch in <code>AnimationSystem</code>; enqueues GPU compute work into render graph; handles CPU-resident op readback.</td></tr></tbody></table>
+<h3 id="anim-graph-nodes">Anim graph nodes</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Node</th><th>Purpose</th></tr></thead><tbody><tr><td><code>RetargetNode</code></td><td>Extends <code>AnimGraphNode</code>; runs the 6-stage pipeline. Used directly by <code>AnimationGraphPlayer</code> for custom graphs; auto-instantiated by the system for component-driven entities.</td></tr></tbody></table>
+<h3 id="op-stack-classes">Op stack classes</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Op</th><th>Phase</th><th>Residency</th></tr></thead><tbody><tr><td><code>FootLockOp</code></td><td>5 (v1)</td><td>CPU (terrain query)</td></tr><tr><td><code>AttachmentPassthroughOp</code></td><td>5 (v1)</td><td>GPU</td></tr><tr><td><code>LookAtOp</code></td><td>5b</td><td>GPU</td></tr><tr><td><code>BodyIntersectOp</code></td><td>v2</td><td>CPU (SDF query)</td></tr><tr><td><code>HandLockOp</code></td><td>v2</td><td>CPU</td></tr><tr><td><code>TwistRedistributeOp</code></td><td>v2</td><td>GPU</td></tr></tbody></table>
+<h3 id="engine-primitives-phase-0">Engine primitives (Phase 0)</h3>
+<p><code>EvaluationContext</code>, <code>PoseStack</code>, <code>AllocationGuard</code>, <code>QuaternionConvert</code>, <code>Memory::AllocationCategory::Animation</code>.</p>
+<h3 id="editor-inspectors--panels">Editor inspectors / panels</h3>
+<p>Default path is zero manual editing — auto-import + auto-bootstrap cover Mixamo, Synty, MetaHuman, glTF, VRM. Inspectors handle the long tail:</p>
+<ul>
+<li><code>RetargetBootstrapBanner</code> (Phase 2a) — one-click “Clip uses different skeleton” setup; silenceable per-folder.</li>
+<li><code>SkeletonProfileInspector</code>, <code>HumanoidRigInspector</code>, <code>RetargetMapInspector</code> — Phase 1 read-only (diagnose auto-import output, broken-Map states) → Phase 7b full edit:
+<ul>
+<li><strong><code>HumanoidRigInspector</code> (Phase 7b)</strong>: 2D body-diagram with drag-drop bone re-binding; three retarget-pose mode buttons (capture from preview / bake from clip frame N / force bind = retarget pose); attachment authoring dialog; live cross-rig preview.</li>
+<li><strong><code>RetargetMapInspector</code> (Phase 7b)</strong>: per-chain mode toggles, IK sliders, op-stack drag-drop with canonical-order warnings.</li>
+</ul>
+</li>
+<li>Hand-edit JSON always works (hot-reload picks up changes).</li>
+</ul>
+<p>When manual editing is needed:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Situation</th><th>Tool</th></tr></thead><tbody><tr><td>Auto-import maps bone wrong</td><td>Phase 7b drag-drop in <code>HumanoidRigInspector</code></td></tr><tr><td>Retarget pose looks off</td><td>Phase 7b three-button override</td></tr><tr><td>Custom op-stack ordering</td><td>Phase 7b op-stack editor or JSON</td></tr><tr><td>Cloak/sheath/quiver anchors</td><td>Phase 7b “Add Attachment” dialog or JSON</td></tr><tr><td>Custom profile for stylized family</td><td>Author new <code>SkeletonProfile</code> JSON</td></tr></tbody></table>
+<h3 id="gpu-compute-shaders-phase-4">GPU compute shaders (Phase 4)</h3>
+<p>Under <code>Engine/Modules/Rendering/Shaders/Animation/</code>: <code>retarget_encode.comp</code>, <code>retarget_fk_transport.comp</code> (Mode A+B), <code>retarget_fk_world_arc.comp</code> (Mode D), <code>retarget_translate.comp</code>, <code>retarget_ik_goal.comp</code>, <code>retarget_two_bone_ik.comp</code>, <code>retarget_fabrik.comp</code>, <code>retarget_op_attachment.comp</code>, <code>retarget_op_lookat.comp</code>, <code>retarget_pose_to_palette.comp</code>.</p>
+<h3 id="render-graph-passes-phase-4">Render graph passes (Phase 4)</h3>
+<p><code>AnimationSampleSourcePass</code>, <code>RetargetEncodePass</code>, <code>RetargetFKPass</code>, <code>RetargetIKGoalPass</code>, <code>RetargetIKSolvePass</code>, <code>RetargetOpStackPass</code>, <code>RetargetPoseToPalettePass</code>.</p>
+<h2 id="status">Status</h2>
+<p><strong>Plan v4 ready for implementation.</strong> Builds on v3’s two rounds of Opus 4.7 audits (<code>audits/round{1,2}-{math,architecture,perf-test}.md</code>); v4 adds GPU-first pipeline + auto-bootstrap UX + full inventory in response to user feedback.</p>
+<ul>
+<li>Authoritative plan: <code>Tools/ai/retarget-redesign/plan-v4.md</code> (diff over v3; reads with v3 + v2 for context on unchanged sections).</li>
+<li>Research: <code>Tools/ai/retarget-redesign/research/01-04</code>.</li>
+<li>Audits: <code>Tools/ai/retarget-redesign/audits/round{1,2}-*.md</code>.</li>
+<li>Convergent verdict from round-2 audits: <strong>Phase 0 is unblocked TODAY</strong>. Recommended: feature branch + pre-merge diff review.</li>
+<li>Phase 3 (visual fix ship gate) is gated on the v3 math fixes (parent-shift bake, Mode D derivation, Stage 4 character-orientation, Appendix A) — all closed in plan-v3 and inherited by v4.</li>
+<li>Phase 4 (GPU lift) is the new phase that integrates with the existing instanced rendering path via <code>SkinPaletteAtlas</code>.</li>
+</ul>
+  </main>
+</body>
+</html>

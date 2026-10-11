@@ -1,0 +1,106 @@
+---
+interface Props {
+	icon: string;
+	type: string;
+	compact?: boolean;
+}
+
+const { icon, type, compact = false } = Astro.props;
+
+const icons: Record<string, string> = {
+	'01': '<path d="M12 13.5h17c4 0 7 2 7 6v30c0-4-3-6-7-6H12z"/><path d="M52 13.5H35c-4 0-7 2-7 6v30c0-4 3-6 7-6h17z"/><path d="M20 22h9M20 29h9M35 22h9M35 29h9"/>',
+	'02': '<rect x="11" y="11" width="17" height="17" rx="2"/><rect x="36" y="11" width="17" height="17" rx="2"/><rect x="11" y="36" width="17" height="17" rx="2"/><rect x="36" y="36" width="17" height="17" rx="2"/><path d="M28 19.5h8M19.5 28v8M44.5 28v8M28 44.5h8"/>',
+	'03': '<path d="M13 50V14h38"/><path d="M20 43 44 19M22 22l20 20"/><path d="M13 22h6M13 31h4M13 40h6M22 14v6M31 14v4M40 14v6"/>',
+	'04': '<rect x="8" y="15" width="48" height="34" rx="4"/><path d="M15 23h5M25 23h5M35 23h5M45 23h4M15 31h5M25 31h5M35 31h5M45 31h4M15 39h7M26 39h22"/>',
+	'05': '<path d="M9 20h19l5 6h22v25H9z"/><path d="M9 20v-6h17l5 6"/><path d="m42 34 2 4 4 2-4 2-2 4-2-4-4-2 4-2z"/>',
+	'06': '<rect x="9" y="11" width="46" height="42" rx="3"/><path d="M9 20h46M16 16h1M22 16h1M28 16h1M23 30l-6 6 6 6M41 30l6 6-6 6M35 27l-6 18"/>',
+	'07': '<path d="M9 18h46M9 46h46M15 32h34"/><path d="M18 14v36M46 14v36"/><circle cx="26" cy="32" r="4"/><path d="M30 32h11"/>',
+	'08': '<path d="M18 18h27l-4-5M46 46H19l4 5"/><path d="M47 19a18 18 0 0 1 1 25M17 45a18 18 0 0 1-1-25"/><path d="m28 24 13 8-13 8z"/>',
+	'09': '<circle cx="32" cy="32" r="10"/><path d="M32 8v8M32 48v8M8 32h8M48 32h8M15 15l6 6M43 43l6 6M49 15l-6 6M21 43l-6 6"/><circle cx="32" cy="32" r="18" stroke-dasharray="2 6"/>',
+	'10': '<rect x="8" y="14" width="14" height="11" rx="2"/><rect x="42" y="27" width="14" height="11" rx="2"/><rect x="8" y="40" width="14" height="11" rx="2"/><path d="M22 19.5h10v13h10M22 45.5h10v-13"/>',
+	'11': '<path d="M9 44c6-9 13-13 23-13s17 4 23 13"/><path d="M13 48h38"/><circle cx="43" cy="19" r="8"/><path d="M43 7v4M43 27v4M31 19h4M51 19h4M35 11l3 3M48 24l3 3"/>',
+	'12': '<circle cx="12" cy="32" r="5"/><circle cx="32" cy="14" r="5"/><circle cx="52" cy="32" r="5"/><circle cx="32" cy="50" r="5"/><path d="m16 29 12-11M36 18l12 11M48 35 36 46M28 46 16 35M17 32h30"/>',
+	'13': '<rect x="7" y="12" width="17" height="12" rx="2"/><rect x="40" y="12" width="17" height="12" rx="2"/><rect x="23.5" y="40" width="17" height="12" rx="2"/><path d="M24 18h16M15.5 24v8h16v8M48.5 24v8h-17"/>',
+	'14': '<rect x="16" y="16" width="32" height="32" rx="4"/><rect x="23" y="23" width="18" height="18" rx="2"/><path d="M22 8v8M32 8v8M42 8v8M22 48v8M32 48v8M42 48v8M8 22h8M8 32h8M8 42h8M48 22h8M48 32h8M48 42h8"/>',
+	'15': '<path d="m32 9 23 11-23 11L9 20z"/><path d="m12 29 20 10 20-10M12 38l20 10 20-10M12 47l20 10 20-10"/>',
+	'16': '<path d="M22 11h-7v42h7M42 11h7v42h-7"/><circle cx="32" cy="20" r="4"/><circle cx="32" cy="44" r="4"/><path d="M32 24v16M24 32h16"/>',
+	'17': '<path d="m12 20 12 8-12 8z"/><circle cx="43" cy="32" r="13"/><path d="M38 27c-5 0-5 10 0 10M48 27c-5 0-5 10 0 10M35 32h16"/>',
+	'18': '<path d="M48 23a18 18 0 0 0-30-5l-4 5M16 41a18 18 0 0 0 30 5l4-5"/><path d="M14 14v9h9M50 50v-9h-9"/><path d="M32 23v18M23 32h18"/>',
+	'19': '<circle cx="24" cy="12" r="4"/><path d="M24 16v14M24 21l-9 8M24 21l11 6M24 30l-7 15M24 30l10 14"/><path d="M40 20h12v12M52 20 38 34"/>',
+	'20': '<circle cx="32" cy="11" r="4"/><path d="M32 15v15M32 20l-12 9M32 20l12 9M32 30l-9 16M32 30l9 16"/><circle cx="20" cy="29" r="2"/><circle cx="44" cy="29" r="2"/><circle cx="23" cy="46" r="2"/><circle cx="41" cy="46" r="2"/>',
+	'21': '<circle cx="32" cy="10" r="3"/><circle cx="18" cy="26" r="3"/><circle cx="46" cy="26" r="3"/><circle cx="12" cy="46" r="3"/><circle cx="26" cy="46" r="3"/><circle cx="39" cy="46" r="3"/><circle cx="52" cy="46" r="3"/><path d="M32 13v7M18 23l14-3 14 3M18 29v10M46 29v10M12 43l6-4 8 4M39 43l7-4 6 4"/>',
+	'22': '<path d="M23 10H12v44h11M41 10h11v44H41"/><path d="M27 22h10M27 32h10M27 42h10"/><circle cx="21" cy="22" r="2"/><circle cx="21" cy="32" r="2"/><circle cx="21" cy="42" r="2"/>',
+	'23': '<path d="m32 8 21 12v24L32 56 11 44V20z"/><path d="m11 20 21 12 21-12M32 32v24"/><circle cx="32" cy="32" r="4"/><path d="M32 28V15M28 34 17 41M36 34l11 7"/>',
+	'24': '<circle cx="23" cy="32" r="14"/><circle cx="41" cy="32" r="14"/><path d="m29 23 6 6-6 6M35 29h-8"/><path d="M13 15 9 11M51 49l4 4"/>',
+	'25': '<path d="M18 22h28c6 0 10 5 9 11l-3 14c-1 5-7 6-10 2l-5-6H27l-5 6c-3 4-9 3-10-2L9 33c-1-6 3-11 9-11z"/><path d="M20 29v10M15 34h10"/><circle cx="43" cy="31" r="2"/><circle cx="48" cy="37" r="2"/>',
+	'26': '<path d="m14 48 17-17"/><path d="M28 14a12 12 0 0 0 14 15L55 42 43 54 30 41a12 12 0 0 0-15-14l8-8z"/><path d="m39 47 8-8"/>',
+	'27': '<path d="M14 9h25l11 11v35H14z"/><path d="M39 9v12h11M22 30h20M22 38h20M22 46h13"/><path d="m8 22 4 4-4 4"/>',
+};
+
+const art = icons[icon] ?? icons['01'];
+---
+
+<span class="doc-card-icon" data-type={type} data-compact={compact ? 'true' : undefined} aria-hidden="true">
+	<svg viewBox="0 0 64 64" fill="none" role="presentation" set:html={art}></svg>
+</span>
+
+<style>
+	.doc-card-icon {
+		--icon-color: #75e7ff;
+		position: relative;
+		display: grid;
+		width: 58px;
+		height: 58px;
+		margin-top: 30px;
+		place-items: center;
+		border: 1px solid color-mix(in srgb, var(--icon-color) 32%, transparent);
+		background:
+			linear-gradient(145deg, color-mix(in srgb, var(--icon-color) 12%, transparent), rgba(4, 6, 11, .5));
+		color: var(--icon-color);
+		box-shadow: inset 0 0 22px color-mix(in srgb, var(--icon-color) 7%, transparent);
+		transition: border-color .25s ease, box-shadow .25s ease, transform .25s ease;
+	}
+
+	.doc-card-icon[data-type="Rendering"] { --icon-color: #df8dff; }
+	.doc-card-icon[data-type="Scripting"] { --icon-color: #8facff; }
+	.doc-card-icon[data-type="Animation"] { --icon-color: #ffae88; }
+	.doc-card-icon[data-type="Engine systems"] { --icon-color: #ffd576; }
+	.doc-card-icon[data-type="Contributors"] { --icon-color: #c3c8d7; }
+	.doc-card-icon[data-type="Getting started"] { --icon-color: #75edbd; }
+
+	.doc-card-icon[data-compact="true"] {
+		width: 20px;
+		height: 20px;
+		margin: 0;
+		border: 0;
+		background: transparent;
+		box-shadow: none;
+	}
+
+	.doc-card-icon[data-compact="true"] svg {
+		width: 17px;
+		height: 17px;
+		stroke-width: 2;
+		filter: drop-shadow(0 0 5px color-mix(in srgb, currentColor 30%, transparent));
+	}
+
+	svg {
+		width: 38px;
+		height: 38px;
+		overflow: visible;
+		stroke: currentColor;
+		stroke-width: 1.65;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+		filter: drop-shadow(0 0 7px color-mix(in srgb, currentColor 36%, transparent));
+	}
+
+	:global(.doc-card:hover) .doc-card-icon,
+	:global(.doc-card:focus-visible) .doc-card-icon {
+		transform: translateY(-2px);
+		border-color: color-mix(in srgb, var(--icon-color) 70%, transparent);
+		box-shadow:
+			inset 0 0 26px color-mix(in srgb, var(--icon-color) 12%, transparent),
+			0 0 24px color-mix(in srgb, var(--icon-color) 16%, transparent);
+	}
+</style>

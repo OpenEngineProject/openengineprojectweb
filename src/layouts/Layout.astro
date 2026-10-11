@@ -1,0 +1,121 @@
+---
+import '@fontsource-variable/inter';
+import '@fontsource-variable/roboto';
+
+const site = Astro.site ?? new URL('https://openengineproject.com/');
+const canonical = new URL(Astro.url.pathname, site).href;
+
+interface Props {
+	title?: string;
+	description?: string;
+	ogTitle?: string;
+}
+
+const {
+	title = 'Open Engine — Game engine · openengineproject.com',
+	description = 'A real-time engine for building worlds, designing gameplay, and bringing your games to life.',
+	ogTitle = 'Open Engine',
+} = Astro.props;
+
+const ogImageUrl = new URL('/og.png?v=20260723', site).href;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<link rel="icon" type="image/png" href="/favicon.png" sizes="48x48" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+		<link rel="canonical" href={canonical} />
+
+		<meta name="generator" content={Astro.generator} />
+		<meta name="description" content={description} />
+		<meta name="theme-color" content="#000000" />
+
+		<title>{title}</title>
+
+		<meta property="og:type" content="website" />
+		<meta property="og:title" content={ogTitle} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={canonical} />
+		<meta property="og:image" content={ogImageUrl} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta
+			property="og:image:alt"
+			content="Open Engine homepage with its fully assembled real-time cube and game-engine introduction."
+		/>
+		<meta property="og:site_name" content="Open Engine" />
+		<meta property="og:locale" content="en_US" />
+
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={ogTitle} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={ogImageUrl} />
+		<meta name="twitter:image:alt" content="Open Engine homepage with its fully assembled real-time cube and game-engine introduction." />
+	</head>
+	<body>
+		<slot />
+	</body>
+</html>
+
+<style is:global>
+	@font-face {
+		font-family: 'Ioskeley Mono';
+		src: url('/fonts/ioskeley-mono/IoskeleyMono-Regular.woff2') format('woff2');
+		font-style: normal;
+		font-weight: 400;
+		font-display: swap;
+	}
+
+	@font-face {
+		font-family: 'Ioskeley Mono';
+		src: url('/fonts/ioskeley-mono/IoskeleyMono-Medium.woff2') format('woff2');
+		font-style: normal;
+		font-weight: 500;
+		font-display: swap;
+	}
+
+	@font-face {
+		font-family: 'Ioskeley Mono';
+		src: url('/fonts/ioskeley-mono/IoskeleyMono-SemiBold.woff2') format('woff2');
+		font-style: normal;
+		font-weight: 600 900;
+		font-display: swap;
+	}
+
+	:root {
+		--bg: #050308;
+		--fg: #f5f3ff;
+		--muted: #c0bdcc;
+		--accent-a: #ff4dd2;
+		--accent-b: #4d8bff;
+		--accent-c: #6ee7ff;
+		--font-mono: 'Ioskeley Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+	}
+
+	*,
+	*::before,
+	*::after {
+		box-sizing: border-box;
+	}
+
+	html {
+		overflow-x: clip;
+	}
+
+	html,
+	body {
+		margin: 0;
+		width: 100%;
+		overflow-x: clip;
+		min-height: 100%;
+		background: var(--bg);
+		color: var(--fg);
+		font-family:
+			Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+			sans-serif;
+		-webkit-font-smoothing: antialiased;
+	}
+</style>

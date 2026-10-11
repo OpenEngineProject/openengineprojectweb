@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sky Rendering and Dynamic Environment Lighting · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="sky-rendering--dynamic-environment-lighting">Sky Rendering &#x26; Dynamic Environment Lighting</h1>
+<h2 id="1-goals--scope">1. Goals &#x26; Scope</h2>
+<p>This document describes the design of a flexible, high‑quality sky rendering and dynamic image‑based lighting (IBL) system for the GameEngine rendering pipeline.</p>
+<p>Goals:</p>
+<ul>
+<li>Physically‑based sky and atmosphere with high visual quality (Hillaire‑style model).</li>
+<li>Time‑of‑day and weather‑driven appearance, with support for fantasy worlds (multiple suns/moons).</li>
+<li>Dynamic IBL (diffuse irradiance + specular prefilter) generated from the sky and distant environment.</li>
+<li>Clean integration with the existing RenderGraph, PBR, shadows, and HDR/tonemapping.</li>
+<li>A small, authorable C++ API and data model that tools and games can drive and serialize deterministically.</li>
+</ul>
+<p>Target platforms: modern PCs and GPUs with compute support. Future fallbacks are out of scope for this initial design but should be enabled by clear abstraction boundaries.</p>
+<h2 id="2-highlevel-architecture">2. High‑Level Architecture</h2>
+<p>The sky system is split into three layers:</p>
+<ol>
+<li>
+<p><strong>Data &#x26; API layer</strong></p>
+<ul>
+<li>Holds sky parameters, celestial bodies, and derived state (sun/moon directions, etc.).</li>
+<li>Provides a simple, deterministic C++ API for engines/tools.</li>
+</ul>
+</li>
+<li>
+<p><strong>Rendering &#x26; IBL layer</strong></p>
+<ul>
+<li>RenderGraph passes that render the sky to the main view and to a cubemap, then convolve to diffuse and specular IBL.</li>
+<li>Integrates with the existing PBR pipeline by supplying dynamic irradiance and prefiltered environment maps.</li>
+</ul>
+</li>
+<li>
+<p><strong>Atmosphere &#x26; clouds model layer</strong></p>
+<ul>
+<li>GPU shaders and LUTs implementing a Hillaire‑style physically‑based atmosphere model.</li>
+<li>Optional cloud and weather effects layered on top.</li>
+</ul>
+</li>
+</ol>
+<p>The architecture is designed so that we can start with a simpler sky model (analytic/Tier 0) and progressively reach a full Hillaire implementation without changing public APIs or RenderGraph structure.</p>
+<h2 id="3-data-model--api">3. Data Model &#x26; API</h2>
+<h3 id="31-core-types">3.1 Core Types</h3>
+<p><strong>SkySettings</strong> (CPU + UBO):</p>
+<ul>
+<li><code>float timeOfDay;</code>  // 0–24 hours, optional convenience parameter</li>
+<li><code>float latitude, longitude;</code></li>
+<li><code>float exposureEV;</code></li>
+<li><code>float turbidity;</code></li>
+<li><code>float rayleighScaleHeight;</code></li>
+<li><code>float mieScaleHeight;</code></li>
+<li><code>float mieAnisotropy;</code></li>
+<li><code>float ozoneThickness;</code></li>
+<li><code>glm::vec3 groundAlbedo;</code></li>
+<li>Weather knobs: <code>cloudCoverage</code>, <code>cloudType</code>, <code>fogDensity</code>, etc.</li>
+</ul>
+<p><strong>CelestialBodyDesc</strong>:</p>
+<ul>
+<li><code>std::string name;</code></li>
+<li><code>float angularRadius;</code>  // degrees</li>
+<li><code>glm::vec3 color;</code></li>
+<li><code>float intensity;</code></li>
+<li><code>float inclination;</code></li>
+<li><code>float azimuthOffset;</code></li>
+<li><code>float orbitPeriodHours;</code></li>
+<li>Flags: <code>isEmitter</code>, <code>isPrimarySun</code>, <code>isMoon</code>, <code>isRingSystem</code>, etc.</li>
+<li>Optional texture handle for rings/asteroid belts.</li>
+</ul>
+<p><strong>SkyEnvironmentState</strong> (derived each frame):</p>
+<ul>
+<li><code>glm::vec3 primarySunDirectionWS;</code></li>
+<li><code>glm::vec3 primaryMoonDirectionWS;</code></li>
+<li><code>std::vector&#x3C;glm::vec3> celestialDirectionsWS;</code>  // for multiple suns/moons, rings.</li>
+<li>Resolved intensities/colors per body.</li>
+</ul>
+<h3 id="32-time-vs-directions--determinism">3.2 Time vs Directions &#x26; Determinism</h3>
+<p>We support both <strong>time‑based</strong> and <strong>direction‑based</strong> control:</p>
+<ul>
+<li>High‑level: <code>timeOfDay</code>, <code>latitude</code>, <code>longitude</code> drive an internal astronomical model that computes sun/moon directions for “Earth‑like” worlds.</li>
+<li>Low‑level: games can override and specify arbitrary celestial bodies and directions explicitly (e.g., multiple suns on custom orbits).</li>
+</ul>
+<p>For <strong>determinism and save/load</strong>:</p>
+<ul>
+<li>We treat <code>SkySettings</code> + the list of <code>CelestialBodyDesc</code> + any random seeds as the canonical serialized state.</li>
+<li>The system does <em>not</em> read system clock; time progression is driven by the game.</li>
+<li>Recreating the same <code>SkySettings</code> and body list yields the same sky and IBL, regardless of frame count.</li>
+</ul>
+<p>In the initial implementation we will focus on one primary sun and one primary moon, but the data model is designed to extend to multiple suns and moons without breaking the API.</p>
+<h3 id="33-c-api-sketch">3.3 C++ API Sketch</h3>
+<p>Example high‑level usage:</p>
+<pre><code class="language-cpp">SkyHandle sky = SkySystem::CreateSky(world);
+
+SkySystem::SetProfile(sky, SkyProfile::EarthDefault());
+SkySystem::SetTimeOfDay(sky, 14.5f); // or directly SkySystem::SetSunDirection(...)
+SkySystem::SetWeather(sky, SkyWeather::Clear());
+
+CelestialBodyDesc moon = CelestialBodyDesc::CreateMoon();
+SkySystem::AddCelestialBody(sky, moon);
+
+SkySystem::EnableDynamicIBL(sky, true);
+</code></pre>
+<p>The API should expose:</p>
+<ul>
+<li>Set/Get <code>SkySettings</code>.</li>
+<li>Add/Remove/Update celestial bodies.</li>
+<li>Control time progression (advance by delta hours, or set absolute time).</li>
+<li>Enable/disable dynamic IBL and configure update frequency.</li>
+</ul>
+<h2 id="4-rendergraph-integration">4. RenderGraph Integration</h2>
+<p>We introduce the following RG resources and passes:</p>
+<h3 id="41-textures">4.1 Textures</h3>
+<ul>
+<li><code>RGTextureHandle skyViewTex</code>  (R16G16B16A16_FLOAT, camera resolution)</li>
+<li><code>RGTextureHandle skyEnvCube</code>  (R16G16B16A16_FLOAT, cubemap, e.g. 256–512 per face)</li>
+<li><code>RGTextureHandle skyIrradianceCube</code> (R16G16B16A16_FLOAT or R11G11B10)</li>
+<li><code>RGTextureHandle skySpecularCube</code>   (R16G16B16A16_FLOAT, mipmapped)</li>
+</ul>
+<p>These map naturally onto the existing IBLSet concept and can either extend IBLSet or be wrapped into a <code>DynamicIBL</code> struct used by PBR.</p>
+<h3 id="42-passes">4.2 Passes</h3>
+<ol>
+<li>
+<p><strong>SkyViewPass</strong></p>
+<ul>
+<li>Inputs: camera matrices, <code>SkySettings</code>, <code>SkyEnvironmentState</code>, atmosphere LUTs.</li>
+<li>Output: <code>skyViewTex</code>.</li>
+<li>Renders the sky for the main camera view (optionally directly into the main HDR color target).</li>
+</ul>
+</li>
+<li>
+<p><strong>SkyEnvironmentCapturePass</strong></p>
+<ul>
+<li>Renders the sky (and optionally far static geometry) into <code>skyEnvCube</code> via 6 cube faces.</li>
+<li>Uses the same atmosphere and celestial shaders, with view directions derived from cube face orientations.</li>
+</ul>
+</li>
+<li>
+<p><strong>SkyDiffuseConvolutionPass</strong></p>
+<ul>
+<li>Reads <code>skyEnvCube</code>, writes <code>skyIrradianceCube</code>.</li>
+<li>Computes diffuse irradiance via Lambertian convolution (importance sampling or pre‑tiled integration).</li>
+</ul>
+</li>
+<li>
+<p><strong>SkySpecularPrefilterPass</strong></p>
+<ul>
+<li>Reads <code>skyEnvCube</code>, writes <code>skySpecularCube</code> mips.</li>
+<li>Uses GGX prefilter (split‑sum approach) consistent with the existing pre‑baked IBL workflow.</li>
+</ul>
+</li>
+<li>
+<p><strong>(Optional, later) AerialPerspectivePass</strong></p>
+<ul>
+<li>Computes a low‑res aerial perspective LUT or full‑screen in‑scattering, used in the main PBR pass.</li>
+</ul>
+</li>
+</ol>
+<p>Environment capture + convolution runs at a configurable frequency (e.g. every N frames or when time/weather change exceeds thresholds). We can optionally blend old and new cubes to avoid popping.</p>
+<h2 id="5-atmospheric-model-hillairestyle">5. Atmospheric Model (Hillaire‑Style)</h2>
+<p>We target a Hillaire‑style physically‑based sky model, with a clear path from a simpler initial implementation to full multi‑scattering:</p>
+<h3 id="51-tiers">5.1 Tiers</h3>
+<ul>
+<li>
+<p><strong>Tier 0 – Analytic sky (prototype / fallback)</strong></p>
+<ul>
+<li>Simple analytic sky (e.g., Hosek–Wilkie / Preetham‑like) implemented directly in the sky shaders.</li>
+<li>Sun and moon added as analytic disk emitters.</li>
+</ul>
+</li>
+<li>
+<p><strong>Tier 1 – LUT‑based single scattering</strong></p>
+<ul>
+<li>Precompute 2D transmittance LUT and 3D single‑scattering LUTs for Rayleigh and Mie.</li>
+<li>Approximate multi‑scattering via simple empirical factors.</li>
+</ul>
+</li>
+<li>
+<p><strong>Tier 2 – Full multi‑scattering (Hillaire)</strong></p>
+<ul>
+<li>Multi‑pass LUT precomputation (transmittance, single/multi‑scattering, optional aerial perspective).</li>
+<li>Supports complex atmospheres and very high‑quality twilight and horizon gradients.</li>
+</ul>
+</li>
+</ul>
+<p>The public API and RenderGraph remain stable across tiers; only the internal LUT generation shaders and sky sampling code change.</p>
+<h2 id="6-clouds-weather-and-celestial-bodies">6. Clouds, Weather, and Celestial Bodies</h2>
+<ul>
+<li><strong>Clouds (initial)</strong>: 2D procedural cloud layer sampled in the sky shader, controlled by <code>cloudCoverage</code>, <code>cloudType</code>, <code>cloudSpeed</code>, etc.</li>
+<li><strong>Clouds (later)</strong>: layered volumetric clouds with limited raymarching, temporal reprojection, and integration with sun/light.</li>
+<li><strong>Weather</strong>: presets defined as parameter sets over <code>SkySettings</code> + cloud parameters (Clear, Overcast, Storm, Hazy Sunset, etc.).</li>
+<li><strong>Celestial bodies</strong>: moons, rings, and asteroid belts represented by <code>CelestialBodyDesc</code> with analytic or texture‑mapped geometry, rendered in the sky shaders.</li>
+</ul>
+<h2 id="7-dynamic-ibl--pbr-integration">7. Dynamic IBL &#x26; PBR Integration</h2>
+<p>The PBR forward pass will be extended to bind:</p>
+<ul>
+<li><code>skyIrradianceCube</code> (diffuse IBL)</li>
+<li><code>skySpecularCube</code> (specular prefiltered env)</li>
+</ul>
+<p>These replace or augment pre‑baked IBLs in existing demos. The BRDF LUT and shading conventions remain as they are today; we only change the source of the environment lighting.</p>
+<h2 id="8-implementation-roadmap--status">8. Implementation Roadmap &#x26; Status</h2>
+<ol>
+<li>Implement data model and APIs (SkySettings, CelestialBodyDesc, SkySystem service).
+<ul>
+<li><strong>Status</strong>: Implemented in <code>Engine/Modules/Rendering/Include/Rendering/Sky/SkySettings.h</code> and <code>SkySystem.h</code> for the WindowPBR_RG_Demo.</li>
+</ul>
+</li>
+<li>Add SkyViewPass and integrate background rendering into WindowPBR_RG_Demo.
+<ul>
+<li><strong>Status</strong>: Implemented. The analytic sky is rendered into the main HDR buffer in <code>WindowPBR_RG_Demo.cpp</code> before PBR.</li>
+</ul>
+</li>
+<li>Add SkyEnvironmentCapturePass + diffuse/specular convolution, wire to PBR as dynamic IBL.
+<ul>
+<li><strong>Status</strong>: Implemented for the demo using:
+<ul>
+<li><code>SkyEnvCube_*</code> passes (6 faces) rendering the analytic sky into a cube texture.</li>
+<li><code>sky_diffuse_convolve.comp</code> → <code>SkyIrradiance_Cube</code> (diffuse IBL).</li>
+<li><code>sky_specular_prefilter.comp</code> → <code>SkySpecular_Cube</code> (specular IBL with mips).</li>
+<li>PBR pass binding the dynamic cubes (with baked IBL as fallback).</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Implement Tier 0 analytic sky for fast end‑to‑end validation.
+<ul>
+<li><strong>Status</strong>: Implemented via <code>sky_analytic.frag</code>, <code>sky_analytic_env.frag</code>, and <code>sky_analytic_cube.frag</code>.</li>
+</ul>
+</li>
+<li>Replace Tier 0 with Tier 1 LUT‑based Hillaire‑style atmosphere (single scattering now, with room for approximate multi‑scattering later).
+<ul>
+<li><strong>Status</strong>: Implemented for the <code>WindowPBR_RG_Demo</code>: a Tier 1 path exists using a shared <code>AtmosphereUBO</code>, a <code>Sky_Transmittance_LUT</code> computed by <code>sky_transmittance_lut.comp</code>, and <code>sky_tier1.frag</code>. LUT mapping and optical depth integration are still being refined; multi‑scattering remains future work before Tier 1 can replace Tier 0 by default.</li>
+</ul>
+</li>
+<li>Extend with clouds and basic weather presets.
+<ul>
+<li><strong>Status</strong>: <strong>Not started</strong>; design hooks exist in <code>SkySettings</code> but no rendering yet.</li>
+</ul>
+</li>
+<li>Consider Tier 2 multi‑scattering and volumetric effects as a later phase.
+<ul>
+<li><strong>Status</strong>: <strong>Not started</strong>.</li>
+</ul>
+</li>
+</ol>
+<h2 id="9-current-implementation-status-windowpbr_rg_demo">9. Current Implementation Status (WindowPBR_RG_Demo)</h2>
+<p>The WindowPBR_RG_Demo currently implements a Tier 0 analytic sky with fully wired dynamic IBL:</p>
+<ul>
+<li>
+<p><strong>Sky data &#x26; time‑of‑day</strong></p>
+<ul>
+<li><code>SkySettings</code> and <code>SkySystem</code> drive sun/moon directions from a simple time‑of‑day model.</li>
+<li>The active light (sun vs moon) is chosen automatically based on horizon threshold and feeds both the sky and the main directional light.</li>
+</ul>
+</li>
+<li>
+<p><strong>View rendering (SkyViewPass)</strong></p>
+<ul>
+<li>The analytic sky is rendered into the main HDR color target before the PBR pass.</li>
+<li>The sun disk and halo are aligned with the directional light direction.</li>
+</ul>
+</li>
+<li>
+<p><strong>Dynamic environment capture</strong></p>
+<ul>
+<li>A persistent cubemap <code>SkyEnv_Cube</code> (256x256, 6 faces) stores the sky rendered from the origin.</li>
+<li>Six RenderGraph passes (<code>SkyEnvCube_PosX/NegX/PosY/NegY/PosZ/NegZ</code>) render each cube face using <code>sky_analytic_cube.frag</code>.</li>
+<li>The RenderGraph infers cube‑compatible textures when <code>arrayLayers == 6</code>, <code>width == height</code>, and <code>sampleCount == 1</code>.</li>
+</ul>
+</li>
+<li>
+<p><strong>Diffuse &#x26; specular convolution</strong></p>
+<ul>
+<li><code>sky_diffuse_convolve.comp</code> writes a low‑res irradiance cubemap <code>SkyIrradiance_Cube</code> (64x64, 6 faces).</li>
+<li><code>sky_specular_prefilter.comp</code> writes a mip‑mapped specular cubemap <code>SkySpecular_Cube</code> (256x256 base, 5 mips) using GGX importance sampling.</li>
+</ul>
+</li>
+<li>
+<p><strong>PBR integration &#x26; bindings</strong></p>
+<ul>
+<li>PBR uses the dynamic cubes when available:
+<ul>
+<li>Binding 11: lat‑long dynamic environment (<code>SkyEnv_LatLong</code>, 2D) – still available as a debug/fallback path.</li>
+<li>Binding 12: diffuse IBL cube (dynamic sky or baked IBL set).</li>
+<li>Binding 13: specular IBL cube (dynamic sky or baked IBL set).</li>
+</ul>
+</li>
+<li>If the dynamic cubes are invalid, the demo falls back to a neutral baked IBL set.</li>
+</ul>
+</li>
+<li>
+<p><strong>Known technical notes</strong></p>
+<ul>
+<li>Vulkan validation is clean for the new passes; previous <code>baseArrayLayer == 6</code> errors were fixed by capturing face indices by value and ensuring proper subresource transitions.</li>
+<li>The engine still reports some shutdown‑time image‑view leaks (pre‑existing); the sky/IBL path contributes a few more transient views and could benefit from small view‑caching helpers.</li>
+</ul>
+</li>
+<li>
+<p><strong>Short‑term runtime features (implemented)</strong></p>
+<ul>
+<li>Runtime IBL mode toggle in the demo (key <strong>I</strong>) to switch between <strong>baked IBL</strong>, <strong>lat‑long dynamic IBL</strong>, and <strong>cubemap‑based dynamic IBL</strong>.</li>
+<li>Sky IBL update cadence control:
+<ul>
+<li>The cubemap + convolution chain only runs when the IBL mode is dynamic (LatLong/Cubemap) <strong>and</strong> either a minimum time‑of‑day delta is exceeded or a manual refresh is requested.</li>
+<li>Time‑of‑day threshold and frame spacing are currently hard‑coded in the demo (good prototypes for future engine‑level policy).</li>
+</ul>
+</li>
+<li>Manual sky IBL refresh toggle (key <strong>U</strong>) that forces the environment capture + convolution to run on the next frame.</li>
+</ul>
+</li>
+<li>
+<p><strong>Tier 1 (in progress – prototype wired)</strong></p>
+<ul>
+<li>Added a persistent <strong>Sky_Transmittance_LUT</strong> texture (256x64, <code>R16G16B16A16_FLOAT</code>, UAV + SRV) and a compute pass <code>SkyTransmittanceLUT</code> driven by <code>sky_transmittance_lut.comp</code>.</li>
+<li>Introduced a Tier 1 sky shader <code>sky_tier1.frag</code> that samples the transmittance LUT and uses a simple single‑scattering approximation on top of the existing <code>SkyUBO</code>.</li>
+<li>Added a runtime <strong>sky tier toggle</strong> (key <strong>T</strong>) that switches between <strong>Tier 0 analytic</strong> (<code>sky_analytic.frag</code>) and <strong>Tier 1 LUT‑based</strong> sky in the main <code>SkyView</code> pass.</li>
+<li>Tier 1 is deliberately approximate right now – it is meant to validate the data flow (LUT resource, compute pass, bindings, toggle) and provide a visual starting point for a proper Hillaire‑style implementation.</li>
+</ul>
+</li>
+<li>
+<p><strong>Next steps (short‑ to mid‑term)</strong></p>
+<ul>
+<li>Refine the transmittance LUT encoding/decoding to more closely match Hillaire (better <code>(mu, r)</code> mapping, height handling, and optical depth integration), and factor in view zenith vs sun zenith properly.</li>
+<li>Expose the existing atmosphere parameter block (rayleigh/mie coefficients, scale heights, planet radius, etc.) through a proper engine‑level sky API (profiles/presets) instead of keeping it demo‑local in WindowPBR_RG_Demo.</li>
+<li>Start planning a follow‑up <strong>inscattering / multi‑scattering</strong> step once the Tier 1 transmittance and direct single‑scattering visuals are solid.</li>
+</ul>
+</li>
+</ul>
+  </main>
+</body>
+</html>

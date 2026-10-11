@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unified Playback API</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #1a1d23;
+    --panel: #232831;
+    --panel-light: #2c323d;
+    --border: #3a414d;
+    --text: #d8dde6;
+    --muted: #8a93a3;
+    --accent: #6db4ff;
+    --danger: #ff8a6e;
+    --ok: #7bd88f;
+    --warn: #f6c177;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.55;
+    margin: 0;
+    padding: 0;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 48px 32px 96px; }
+  h1 { font-size: 28px; margin: 0 0 8px; letter-spacing: -0.01em; }
+  h2 {
+    font-size: 20px;
+    margin: 48px 0 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  h3 { font-size: 16px; margin: 28px 0 10px; color: var(--accent); }
+  h4 { font-size: 14px; margin: 20px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  p { margin: 8px 0 14px; }
+  .lede { color: var(--muted); margin-bottom: 4px; font-size: 14px; }
+  a { color: #91c4ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono {
+    font-family: "JetBrains Mono", Consolas, ui-monospace, monospace;
+    font-size: 0.85em;
+    background: var(--panel-light);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  pre {
+    background: var(--panel-light);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.45;
+    margin: 12px 0 20px;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 16px 0;
+  }
+  .panel.ok { border-color: rgba(123, 216, 143, 0.45); }
+  .panel.warn { border-color: rgba(246, 193, 119, 0.45); }
+  .panel.danger { border-color: rgba(255, 138, 110, 0.45); }
+  .panel.after { border-color: rgba(109, 180, 255, 0.35); }
+  .panel-title {
+    font-weight: 600;
+    font-size: 12px;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .panel.ok .panel-title { color: var(--ok); }
+  .panel.warn .panel-title { color: var(--warn); }
+  .panel.after .panel-title { color: var(--accent); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0 20px;
+    font-size: 13.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  tbody tr:hover { background: rgba(44, 50, 61, 0.5); }
+  .pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .pill.keep { background: rgba(109, 180, 255, 0.13); color: var(--accent); border: 1px solid rgba(109, 180, 255, 0.35); }
+  .pill.new { background: rgba(123, 216, 143, 0.13); color: var(--ok); border: 1px solid rgba(123, 216, 143, 0.35); }
+  .pill.mod { background: rgba(246, 193, 119, 0.13); color: var(--warn); border: 1px solid rgba(246, 193, 119, 0.35); }
+  .pill.del { background: rgba(255, 138, 110, 0.13); color: var(--danger); border: 1px solid rgba(255, 138, 110, 0.35); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .diagram-wrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  ul, ol { margin: 8px 0 16px; padding-left: 22px; }
+  li { margin: 4px 0; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+  .footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 64px; }
+  .toc a { display: block; padding: 4px 0; font-size: 14px; }
+  .toc { columns: 2; column-gap: 32px; }
+  @media (max-width: 700px) { .toc { columns: 1; } }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+  @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+  .step {
+    background: var(--panel-light);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+  .step strong { display: block; color: var(--accent); margin-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<p class="lede">ARCHITECTURE · 2026-05-28 · Animation / Audio / ECS</p>
+<h1>Unified Playback API</h1>
+<p>
+  How the engine plays animation, audio, transforms, property curves, and scripted events today —
+  and where a single runtime path is still missing. Companion to the
+  <a href="Timeline-API-Manual.html">Timeline API Manual</a> (evaluator + editor details).
+</p>
+
+<nav class="panel toc">
+  <p class="panel-title">Contents</p>
+  <a href="#summary">Executive summary</a>
+  <a href="#today">What exists today</a>
+  <a href="#evaluate">Unified evaluation</a>
+  <a href="#split">Split playback APIs</a>
+  <a href="#gap">Evaluation vs application</a>
+  <a href="#playback-system">TimelinePlaybackSystem (proposal)</a>
+  <a href="#schedule">ECS schedule placement</a>
+  <a href="#matrix">API pick matrix</a>
+  <a href="#files">Source file index</a>
+  <a href="#related">Related docs</a>
+</nav>
+
+<h2 id="summary">Executive summary</h2>
+
+<div class="two-col">
+  <div class="panel ok">
+    <p class="panel-title">Yes — unified evaluation</p>
+    <p>
+      <code>.timeline</code> assets and <code>EvaluateTimeline()</code> sample <strong>all track types</strong>
+      in one call: animation clips, audio keys, transform/property curves, method/event keys.
+    </p>
+  </div>
+  <div class="panel ok">
+    <p class="panel-title">Yes — runtime apply (TimelinePlaybackSystem)</p>
+    <p>
+      <code>TimelinePlaybackSystem</code> runs each frame for <code>Animator</code> entities with
+      <code>source == Timeline</code>: evaluates the timeline and applies clips, transforms, audio keys, and
+      registered method callbacks. See <a href="#playback-system">TimelinePlaybackSystem</a>.
+    </p>
+  </div>
+</div>
+
+<h2 id="today">What exists today</h2>
+
+<div class="diagram-wrap">
+<pre class="mermaid">
+flowchart TB
+  subgraph Unified["Unified evaluation (exists)"]
+    TA[".timeline JSON"]
+    TL["Animation::Timeline"]
+    EV["EvaluateTimeline(prev, curr)"]
+    RES["TimelineEvaluationResult"]
+    TA --> TL --> EV --> RES
+  end
+
+  subgraph Split["Split apply / play (today)"]
+    AN["Animator → AnimatorRef"]
+    AS["AnimationSystem"]
+    VC["ValueCurveSystem"]
+    AU["AudioSystem Play2D/3D"]
+    AN --> AS
+  end
+
+  RES -.->|"ActiveClips → partial"| AN
+  RES -->|"ValueSamples"| TPS["TimelinePlaybackSystem"]
+  RES -->|"AudioEvents"| TPS
+  RES -->|"MethodEvents"| TPS
+  TPS --> VC
+  TPS --> AU
+  TPS --> AN
+</pre>
+</div>
+
+<h2 id="evaluate">Unified evaluation</h2>
+
+<p>
+  <strong>Namespace:</strong> <code>GameEngine::Animation</code><br>
+  <strong>Header:</strong> <code>Engine/Modules/Animation/Include/Animation/AnimationTimeline.h</code>
+</p>
+
+<pre><code>TimelineEvaluationResult EvaluateTimeline(
+    const Timeline&amp; timeline,
+    float32 previousTime,
+    float32 currentTime,
+    const TimelineEvaluateOptions&amp; options = {});</code></pre>
+
+<table>
+  <thead><tr><th>Result field</th><th>Track types</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><code>ValueSamples</code></td><td>property, position3d, rotation3d, scale3d, blendShape, bezier</td><td>Interpolated values at sample time</td></tr>
+    <tr><td><code>ActiveClips</code></td><td>animation, audio (clip tracks)</td><td>Local clip time + blend weight</td></tr>
+    <tr><td><code>MethodEvents</code></td><td>method, event</td><td>Keys crossed in <code>(previousTime, currentTime]</code></td></tr>
+    <tr><td><code>AudioEvents</code></td><td>audio (discrete keys)</td><td>One-shot triggers in the time window</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Full track-type strings, JSON schema, and evaluator semantics:
+  <a href="Timeline-API-Manual.html#evaluate">Timeline API Manual → EvaluateTimeline</a>.
+</p>
+
+<h2 id="split">Split playback APIs</h2>
+
+<table>
+  <thead><tr><th>Goal</th><th>API</th><th>Scope</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>What should happen at time <em>t</em>?</td>
+      <td><code>LoadTimelineFromJson</code> + <code>EvaluateTimeline</code></td>
+      <td>All track types (data only)</td>
+    </tr>
+    <tr>
+      <td>Play timeline on animated entity</td>
+      <td><code>Animator::PlayTimeline(guid)</code> + <code>TimelinePlaybackSystem</code></td>
+      <td>Entry point; system evaluates and applies each frame</td>
+    </tr>
+    <tr>
+      <td>Play / blend / queue skeletal clips</td>
+      <td><code>Animator</code>, <code>AnimationPlayer</code>, <code>AnimatorRef</code> + <code>AnimationSystem</code></td>
+      <td>Skeleton + morph channels</td>
+    </tr>
+    <tr>
+      <td>State machine / montage graph</td>
+      <td><code>AnimationController</code></td>
+      <td>Gameplay animation graphs</td>
+    </tr>
+    <tr>
+      <td>Per-entity scalar curves (non-timeline)</td>
+      <td><code>ValueCurve</code> + <code>ValueCurveSystem</code></td>
+      <td>Transform position/scale, light intensity, post-process</td>
+    </tr>
+    <tr>
+      <td>Play a sound</td>
+      <td><code>AudioSystem::Play2D</code> / <code>Play3D</code></td>
+      <td>Audio module only</td>
+    </tr>
+    <tr>
+      <td>Editor scrub / author</td>
+      <td><code>AnimationWindowPanel</code>, <code>TimelineState</code></td>
+      <td>UI; not runtime ECS</td>
+    </tr>
+    <tr>
+      <td>C# gameplay</td>
+      <td>—</td>
+      <td><span class="pill.del">none</span> No managed timeline API yet</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Animator playback sources</h3>
+
+<pre><code>enum class AnimatorPlaybackSource : uint8
+{
+    Clip,
+    Timeline,
+    Library,
+    Controller
+};</code></pre>
+
+<p>
+  <code>PlayTimeline</code> sets <code>timelineGuid</code>, <code>source = Timeline</code>, and <code>pendingCommand = Play</code>.
+  Runtime consumption of that command is not a full director — see gap below.
+</p>
+
+<h2 id="gap">Evaluation vs application</h2>
+
+<div class="panel ok">
+  <p class="panel-title">Apply layer (shipped)</p>
+  <p>
+    <code>EvaluateTimeline</code> computes samples and events.
+    <code>TimelinePlaybackSystem</code> + <code>ApplyTimelineEvaluation</code> in
+    <code>Engine/Rendering/TimelinePlayback.cpp</code> push them into ECS, <code>AnimatorRef</code>, <code>AudioSystem</code>,
+    and the method callback registry.
+  </p>
+</div>
+
+<p>Per-frame apply entry point:</p>
+
+<pre><code>ApplyTimelineEvaluation(evaluation, context);
+// context: world, root entity, subtree, assetManager, optional audioSystem</code></pre>
+
+<p>Editor enter-play still calls <code>ApplyTimelineEvaluation</code> once for an initial pose, then the ECS system owns playback.</p>
+
+<h2 id="playback-system">TimelinePlaybackSystem <span class="pill keep">shipped</span></h2>
+
+<p>
+  <strong><code>TimelinePlaybackSystem</code></strong> runs each frame on entities with
+  <code>Animator.source == Timeline</code>, advances <code>TimelinePlaybackState</code>, calls
+  <code>EvaluateTimeline(previousTime, currentTime)</code>, and applies all result channels — Unity
+  <strong>PlayableDirector</strong> style.
+</p>
+
+<div class="panel after">
+  <p class="panel-title">Responsibility</p>
+  <p>
+    <strong>Evaluate</strong> (already exists) answers “what happened between <em>t₀</em> and <em>t₁</em>?”<br>
+    <strong>TimelinePlaybackSystem</strong> answers “push that into the scene graph and subsystems.”
+  </p>
+</div>
+
+<h3>Per-frame loop (sketch)</h3>
+
+<div class="grid-2">
+  <div class="step"><strong>1 · Query</strong>Entities with <code>Animator</code> where <code>source == Timeline</code>, timeline playing, and valid <code>timelineGuid</code>.</div>
+  <div class="step"><strong>2 · Advance</strong>Update local playback clock (<code>deltaTime * speedScale</code>, loop wrap via <code>GetTimelineDuration</code>).</div>
+  <div class="step"><strong>3 · Evaluate</strong><code>EvaluateTimeline(timeline, prevT, currT, { .Loop = animator.loop })</code></div>
+  <div class="step"><strong>4 · Apply</strong>Dispatch result vectors to transforms, <code>AnimatorRef</code>, audio, callbacks (below).</div>
+</div>
+
+<h3>Apply mapping</h3>
+
+<table>
+  <thead><tr><th>Evaluation output</th><th>Apply target</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>ActiveClips</code> (Animation)</td>
+      <td><code>AnimatorRef</code> on bound subtree</td>
+      <td>Reuse clip resolution from <code>ModelAnimationPlayMode.cpp</code>; blend weights → cross-fade or dominant clip</td>
+    </tr>
+    <tr>
+      <td><code>ValueSamples</code> (position3d / rotation3d / scale3d)</td>
+      <td><code>Transform</code> on entity resolved from <code>TargetPath</code></td>
+      <td>Mirror <code>ValueCurveSystem</code> TRS writes; run <strong>before</strong> <code>TransformHierarchySystem</code></td>
+    </tr>
+    <tr>
+      <td><code>ValueSamples</code> (property / blendShape)</td>
+      <td>Component field via <code>PropertyPath</code></td>
+      <td>Start with known paths (<code>Transform.position</code>, morph weights); extend via binding table</td>
+    </tr>
+    <tr>
+      <td><code>AudioEvents</code> + audio <code>ActiveClips</code></td>
+      <td><code>AudioSystem::Play2D/3D</code></td>
+      <td>Respect <code>audioMaxPolyphony</code> on <code>Animator</code>; optional 3D emitter on root</td>
+    </tr>
+    <tr>
+      <td><code>MethodEvents</code></td>
+      <td>Callback dispatcher</td>
+      <td>Deferred vs immediate per <code>AnimatorCallbackMethod</code>; C# bridge later</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Runtime component: <code>TimelinePlaybackState</code></h3>
+
+<p><strong>Header:</strong> <code>Engine/Include/Components/Animation/TimelinePlaybackState.h</code></p>
+
+<pre><code>struct TimelinePlaybackState
+{
+    float32 timeSeconds = 0.0f;
+    float32 previousTimeSeconds = 0.0f;
+    bool playing = false;
+    bool paused = false;
+};</code></pre>
+
+<p>
+  Added automatically on the <code>Animator</code> root when timeline playback starts.
+  <code>Animator</code> remains the authoring surface (<code>PlayTimeline</code>, <code>Pause</code>, <code>Seek</code>);
+  <code>pendingCommand</code> is consumed by the system each frame.
+</p>
+
+<h3>Binding: <code>TargetPath</code> → entity</h3>
+
+<ul>
+  <li>Resolve <code>track.TargetPath</code> against the animated root subtree (same hierarchy walk as <code>CollectEntitiesInSubtree</code> in play mode).</li>
+  <li>Cache path → <code>EntityHandle</code> when timeline asset or hierarchy changes (invalidate on reparent).</li>
+  <li>Missing binding: log once, skip track (do not crash evaluation).</li>
+</ul>
+
+<h3>Method / code events</h3>
+
+<p>
+  <code>TimelineMethodEvent</code> carries <code>MethodName</code>, <code>Arguments</code>, and <code>TypedArguments</code>.
+  Phase 1: engine-native callback registry (string name → <code>std::function</code>) for tests and editor.
+  Phase 2: route through existing <code>Animator</code> callback process (<code>Idle</code> / <code>Physics</code> / <code>Manual</code>) and scripting ABI.
+</p>
+
+<h3>What this system should not own</h3>
+
+<ul>
+  <li>JSON load/save — stays in <code>AnimationTimeline.cpp</code> / <code>TimelineAsset</code></li>
+  <li>Editor scrub UI — <code>AnimationWindowPanel</code> / <code>TimelineState</code></li>
+  <li>Skeletal pose solve — still <code>AnimationSystem</code> + <code>SkinningUploadSystem</code> after <code>AnimatorRef</code> is set</li>
+  <li>Editor-only one-shot resolve — <code>ResolveTimelinePlayback</code> can delegate to shared helper or shrink once system ships</li>
+</ul>
+
+<h3>Source files</h3>
+
+<table>
+  <thead><tr><th>File</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td><code>ECSModules/Rendering/Systems/TimelinePlaybackSystem.h</code></td><td>ECS system</td></tr>
+    <tr><td><code>Source/Engine/Rendering/Systems/TimelinePlaybackSystem.cpp</code></td><td>Advance time, evaluate, apply</td></tr>
+    <tr><td><code>Include/Engine/Rendering/TimelinePlayback.h</code></td><td>Apply helpers, method registry, path resolve</td></tr>
+    <tr><td><code>Source/Engine/Rendering/TimelinePlayback.cpp</code></td><td>Implementation</td></tr>
+    <tr><td><code>Tests/Rendering/TimelinePlaybackTests.cpp</code></td><td>Method callback unit test</td></tr>
+  </tbody>
+</table>
+
+<h3>Method callbacks (gameplay hook)</h3>
+
+<pre><code>RegisterTimelineMethodCallback("OnDoorOpen", [](World&amp; w, EntityHandle root, const TimelineMethodEvent&amp; e) {
+    // ...
+});
+// Method track keys in .timeline dispatch by MethodName during playback.</code></pre>
+
+<h3>C# API <span class="pill keep">shipped</span></h3>
+<p>See <a href="Timeline-API-Manual.html#csharp">Timeline API Manual → C# scripting API</a> and <code>Managed/Scripting.ABI/TimelineApi.cs</code>.</p>
+
+<h3>Editor serialization bridge <span class="pill keep">shipped</span></h3>
+<p><code>Apps/Editor/Source/Panels/TimeCompositeTimelineBridge.cpp</code> converts composite models through <code>Animation::Timeline</code> for save/load.</p>
+
+<div class="panel warn">
+  <p class="panel-title">Remaining limitations</p>
+  <ul>
+    <li>Multi-clip skeletal blend uses <strong>dominant weight</strong> only.</li>
+    <li>Video tracks are editor-only (<code>editorOnly.videoTracks</code>).</li>
+    <li>Path → entity cache not implemented (resolve each frame).</li>
+  </ul>
+</div>
+
+<h2 id="schedule">ECS schedule placement</h2>
+
+<div class="diagram-wrap">
+<pre class="mermaid">
+flowchart LR
+  CMD["Gameplay / Animator commands"]
+  TPS["TimelinePlaybackSystem\nEvaluate + Apply"]
+  AN["AnimationSystem"]
+  HIER["TransformHierarchySystem"]
+  SKIN["SkinningUploadSystem"]
+
+  CMD --> TPS
+  TPS --> AN
+  TPS --> HIER
+  AN --> SKIN
+  HIER --> SKIN
+</pre>
+</div>
+
+<p>
+  <code>ValueCurveSystem</code> already runs in the animation wave; timeline transform writes should use the same ordering rules
+  so local <code>Transform</code> is final before hierarchy propagation.
+</p>
+
+<h2 id="matrix">API pick matrix</h2>
+
+<table>
+  <thead><tr><th>I want to…</th><th>Use today</th><th>After TimelinePlaybackSystem</th></tr></thead>
+  <tbody>
+    <tr><td>Sample a timeline at a fixed time (tooling, test)</td><td><code>EvaluateTimeline</code></td><td>Same</td></tr>
+    <tr><td>Run a cinematic in-game</td><td><code>Animator::PlayTimeline</code> + system</td><td>Same</td></tr>
+    <tr><td>Move an object on a curve</td><td><code>ValueCurve</code> or manual</td><td>Timeline position track + system</td></tr>
+    <tr><td>Fire audio at markers</td><td><code>AudioSystem::Play*</code> from code</td><td>Timeline audio keys + system</td></tr>
+    <tr><td>Call gameplay at a time</td><td>Custom timer</td><td>Timeline method track + dispatcher</td></tr>
+  </tbody>
+</table>
+
+<h2 id="files">Source file index</h2>
+
+<table>
+  <thead><tr><th>Path</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td><code>Engine/Modules/Animation/Include/Animation/AnimationTimeline.h</code></td><td>Types + <code>EvaluateTimeline</code></td></tr>
+    <tr><td><code>Engine/Modules/Animation/Source/AnimationTimeline.cpp</code></td><td>Evaluator implementation</td></tr>
+    <tr><td><code>Engine/Include/Components/Animation/Animator.h</code></td><td><code>PlayTimeline</code>, playback source enum</td></tr>
+    <tr><td><code>Apps/Editor/Source/PlayMode/ModelAnimationPlayMode.cpp</code></td><td>Partial timeline → clip resolve (editor)</td></tr>
+    <tr><td><code>Engine/Source/Engine/Rendering/Systems/AnimationSystem.cpp</code></td><td>Skeletal clip advance + morph</td></tr>
+    <tr><td><code>Engine/Source/Engine/Rendering/Systems/ValueCurveSystem.cpp</code></td><td>Reference for applying curves to TRS</td></tr>
+    <tr><td><code>Engine/Modules/Audio/Include/Audio/AudioSystem.h</code></td><td><code>Play2D</code> / <code>Play3D</code></td></tr>
+    <tr><td><code>Engine/Source/Engine/Rendering/Systems/RegisterRenderingSystems.cpp</code></td><td>Registers <code>TimelinePlaybackSystem</code> before <code>AnimationSystem</code></td></tr>
+    <tr><td><code>Engine/Include/Components/Animation/TimelinePlaybackState.h</code></td><td>Per-play clock</td></tr>
+    <tr><td><code>docs/Editor/Timeline-API-Manual.html</code></td><td>Evaluator + editor API reference</td></tr>
+  </tbody>
+</table>
+
+<h2 id="related">Related docs</h2>
+
+<ul>
+  <li><a href="Timeline-API-Manual.html">Timeline API Manual</a> — JSON tracks, <code>EvaluateTimeline</code> semantics, editor UI</li>
+  <li><code>docs/Editor/ANIMATION_WINDOW.md</code> — Animation / Timeline dock overview</li>
+</ul>
+
+<p class="footer">Game Engine · Unified Playback API · 2026-05-28</p>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#2c323d',
+      primaryTextColor: '#d8dde6',
+      primaryBorderColor: '#3a414d',
+      lineColor: '#6db4ff',
+      secondaryColor: '#232831',
+      tertiaryColor: '#1a1d23'
+    }
+  });
+</script>
+</body>
+</html>

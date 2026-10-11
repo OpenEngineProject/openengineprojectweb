@@ -1,0 +1,1704 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import OpenEngineSiteNav from '../../components/OpenEngineSiteNav.astro';
+import ConstellationBackground from '../../components/ConstellationBackground.astro';
+import PageGradientLayer from '../../components/PageGradientLayer.astro';
+import DocCardIcon from '../../components/DocCardIcon.astro';
+import OpenEngineFooter from '../../components/OpenEngineFooter.astro';
+import { readFile } from 'node:fs/promises';
+
+const docsDescription =
+	'Technical references for the Open Engine CLI, editor, rendering, scripting, animation, engine systems, and contributor workflows.';
+
+const markdownDocument = (
+	number: string,
+	type: string,
+	title: string,
+	description: string,
+	basePath: string,
+) => ({
+	number,
+	type,
+	format: 'HTML + Markdown',
+	title,
+	description,
+	href: `${basePath}.html`,
+	sourceHref: `${basePath}.md`,
+	sourceLabel: 'Markdown source',
+});
+
+const htmlDocument = (
+	number: string,
+	type: string,
+	title: string,
+	description: string,
+	href: string,
+) => ({
+	number,
+	type,
+	format: 'HTML',
+	title,
+	description,
+	href,
+	sourceHref: null,
+	sourceLabel: null,
+});
+
+const documents = [
+	markdownDocument('01', 'Getting started', 'Game Engine user guide', 'An introduction to projects, scenes, entities, components, assets, scripting, and the editor workflow.', '/docs/getting-started/user-guide'),
+	htmlDocument('02', 'Getting started', 'GameEngine CLI manual', 'Control and inspect the editor, automate scenes and UI, capture rendering diagnostics, author source, and run build and test workflows from the command line.', '/docs/getting-started/cli-manual.html'),
+	{
+		number: '03',
+		type: 'Editor UI',
+		format: 'HTML + Markdown',
+		title: 'UI component library',
+		description: 'Browse the controls, CSS classes, tokens, layout patterns, icon conventions, and authoring rules already available in the editor.',
+		href: '/docs/editor/ui_component_library.html',
+		sourceHref: '/docs/editor/ui_component_library.md',
+		sourceLabel: 'Markdown source',
+	},
+	markdownDocument('04', 'Editor UI', 'UI guidelines', 'Practical guidance for clear and consistent editor interfaces, from layout and styling to interaction behavior.', '/docs/editor/ui-guidelines'),
+	markdownDocument('05', 'Editor UI', 'Editor keyboard shortcuts', 'A compact reference for navigating and operating the editor efficiently from the keyboard.', '/docs/editor/keyboard-shortcuts'),
+	markdownDocument('06', 'Editor UI', 'Smart Folders', 'Build dynamic asset collections using saved filters and editor-aware project organization.', '/docs/editor/smart-folders'),
+	markdownDocument('07', 'Editor UI', 'UI API guide', 'Create native editor interfaces with UI elements, layouts, styles, events, and reusable controls.', '/docs/editor/ui-api-guide'),
+	htmlDocument('08', 'Editor UI', 'Timeline API manual', 'Author time-based editor tools and animation workflows with the timeline API.', '/docs/editor/timeline-api.html'),
+	htmlDocument('09', 'Editor UI', 'Unified playback API', 'Use the shared playback model for timelines, previews, animation, and editor transport controls.', '/docs/editor/unified-playback-api.html'),
+	markdownDocument('10', 'Rendering', 'HDR post-processing', 'Configure HDR output, bloom, exposure, tonemapping, and the post-processing pipeline.', '/docs/rendering/hdr-post-processing'),
+	markdownDocument('11', 'Rendering', 'Custom render pipeline', 'Build asset-driven rendering pipelines with RenderGraph resources, passes, and pipeline defaults.', '/docs/rendering/custom-render-pipeline'),
+	markdownDocument('12', 'Rendering', 'Sky rendering', 'Work with the physical sky, dynamic environment lighting, and scene atmosphere.', '/docs/rendering/sky-rendering'),
+	markdownDocument('13', 'Rendering', 'RenderGraph quick reference', 'Declare rendering resources, passes, dependencies, and execution through RenderGraph.', '/docs/rendering/render-graph'),
+	htmlDocument('14', 'Rendering', 'Shader graph specification', 'Technical specification for shader graph data, node files, connections, and compilation.', '/docs/rendering/shader-graph-spec.html'),
+	htmlDocument('15', 'Rendering', 'Rendering architecture guide', 'Explore the GPU-driven renderer, resource model, frame flow, and architectural boundaries.', '/docs/rendering/architecture-guide.html'),
+	markdownDocument('16', 'Rendering', 'GPU debugging and profiling', 'Capture and profile frames with RenderDoc, NVIDIA Nsight, and AMD Radeon GPU Profiler.', '/docs/rendering/gpu-debugging-and-profiling'),
+	htmlDocument('17', 'Rendering', 'Render pipeline authoring', 'Create and configure render pipelines using the engine authoring model.', '/docs/rendering/render-pipeline-authoring.html'),
+	markdownDocument('18', 'Scripting', 'Scripting architecture', 'Understand managed scripting, compilation, assembly loading, and asynchronous hot reload.', '/docs/scripting/overview'),
+	markdownDocument('19', 'Scripting', 'C# play mode, input, and ECS', 'Create C# gameplay systems that integrate with play mode, input, entities, and components.', '/docs/scripting/csharp-play-mode-ecs'),
+	markdownDocument('20', 'Scripting', 'Hot reload best practices', 'Structure scripts and state so iteration remains fast and reliable during hot reload.', '/docs/scripting/hot-reload'),
+	markdownDocument('21', 'Animation', 'Humanoid retargeting quickstart', 'Get a humanoid retargeting workflow running from source rig to animated target.', '/docs/animation/quickstart'),
+	markdownDocument('22', 'Animation', 'Humanoid retargeting overview', 'Learn the concepts, workflow, and responsibilities behind the retargeting system.', '/docs/animation/overview'),
+	markdownDocument('23', 'Animation', 'Humanoid retargeting architecture', 'Technical architecture for rigs, mappings, runtime data, and animation processing.', '/docs/animation/architecture'),
+	markdownDocument('24', 'Animation', 'Humanoid retargeting API', 'Reference the main retargeting types, configuration, and API surface.', '/docs/animation/api-reference'),
+	markdownDocument('25', 'Engine systems', 'Entity component system', 'Guidance for entities, components, queries, systems, scheduling, and data-oriented workflows.', '/docs/engine-systems/entity-component-system'),
+	markdownDocument('26', 'Engine systems', 'Physics events', 'Use collision and trigger events from gameplay systems through the Physics ECS integration.', '/docs/engine-systems/physics-events'),
+	markdownDocument('27', 'Engine systems', 'Input system', 'Understand device input, action state, frame updates, and the input module architecture.', '/docs/engine-systems/input-system'),
+	markdownDocument('28', 'Contributors', 'Build and test', 'Configure, build, test, and validate the engine and editor across supported development environments.', '/docs/contributors/build-and-test'),
+	markdownDocument('29', 'Contributors', 'Coding style', 'Follow the project conventions for readable, maintainable C++ and shared engine code.', '/docs/contributors/coding-style'),
+];
+
+const searchableWords = (value: string) => (
+	[...new Set(
+		value
+			.replace(/<!--[\s\S]*?-->/g, ' ')
+			.replace(/<script[\s\S]*?<\/script>/gi, ' ')
+			.replace(/<style[\s\S]*?<\/style>/gi, ' ')
+			.replace(/<[^>]+>/g, ' ')
+			.replace(/&(?:[a-z]+|#\d+);/gi, ' ')
+			.toLocaleLowerCase()
+			.match(/[a-z0-9+#._-]{2,}/g) ?? [],
+	)]
+);
+
+const documentSearchIndex = Object.fromEntries(await Promise.all(
+	documents.map(async (document) => {
+		let source = '';
+		const candidates = [document.sourceHref, document.href].filter(
+			(candidate): candidate is string => Boolean(candidate),
+		);
+
+		for (const candidate of candidates) {
+			try {
+				source = await readFile(
+					new URL(`../../../public${candidate}`, import.meta.url),
+					'utf8',
+				);
+				break;
+			} catch {
+				// Some HTML-only references have no Markdown source.
+			}
+		}
+
+		return [
+			document.href,
+			searchableWords(`${document.title} ${document.description} ${source}`).join(' '),
+		];
+	}),
+));
+
+const treeSections = [
+	{
+		label: 'Getting started',
+		cardIcon: '01',
+		cardType: 'Getting started',
+		open: true,
+		items: [
+			{ label: 'Documentation overview', href: '/docs', current: true },
+			{ label: 'Game Engine user guide', href: '/docs/getting-started/user-guide.html' },
+			{ label: 'GameEngine CLI manual', href: '/docs/getting-started/cli-manual.html' },
+			{ label: 'Build & test', href: '/docs/contributors/build-and-test.html' },
+			{ label: 'Coding style', href: '/docs/contributors/coding-style.html' },
+		],
+	},
+	{
+		label: 'Editor & UI',
+		cardIcon: '03',
+		cardType: 'Editor UI',
+		open: true,
+		items: [
+			{ label: 'Component library', href: '/docs/editor/ui_component_library.html' },
+			{ label: 'UI guidelines', href: '/docs/editor/ui-guidelines.html' },
+			{ label: 'Keyboard shortcuts', href: '/docs/editor/keyboard-shortcuts.html' },
+			{ label: 'Smart Folders', href: '/docs/editor/smart-folders.html' },
+			{ label: 'UI API guide', href: '/docs/editor/ui-api-guide.html' },
+			{ label: 'Timeline API', href: '/docs/editor/timeline-api.html' },
+			{ label: 'Unified playback API', href: '/docs/editor/unified-playback-api.html' },
+		],
+	},
+	{
+		label: 'Rendering',
+		cardIcon: '13',
+		cardType: 'Rendering',
+		items: [
+			{ label: 'HDR post-processing', href: '/docs/rendering/hdr-post-processing.html' },
+			{ label: 'Custom render pipeline', href: '/docs/rendering/custom-render-pipeline.html' },
+			{ label: 'Sky rendering', href: '/docs/rendering/sky-rendering.html' },
+			{ label: 'RenderGraph', href: '/docs/rendering/render-graph.html' },
+			{ label: 'Shader graph specification', href: '/docs/rendering/shader-graph-spec.html' },
+			{ label: 'Rendering architecture', href: '/docs/rendering/architecture-guide.html' },
+			{ label: 'GPU debugging & profiling', href: '/docs/rendering/gpu-debugging-and-profiling.html' },
+			{ label: 'Pipeline authoring', href: '/docs/rendering/render-pipeline-authoring.html' },
+		],
+	},
+	{
+		label: 'Scripting',
+		cardIcon: '17',
+		cardType: 'Scripting',
+		items: [
+			{ label: 'Scripting overview', href: '/docs/scripting/overview.html' },
+			{ label: 'C# play mode & ECS', href: '/docs/scripting/csharp-play-mode-ecs.html' },
+			{ label: 'Hot reload', href: '/docs/scripting/hot-reload.html' },
+		],
+	},
+	{
+		label: 'Animation',
+		cardIcon: '21',
+		cardType: 'Animation',
+		items: [
+			{ label: 'Quickstart', href: '/docs/animation/quickstart.html' },
+			{ label: 'Overview', href: '/docs/animation/overview.html' },
+			{ label: 'Architecture', href: '/docs/animation/architecture.html' },
+			{ label: 'API reference', href: '/docs/animation/api-reference.html' },
+		],
+	},
+	{
+		label: 'Engine systems',
+		cardIcon: '24',
+		cardType: 'Engine systems',
+		items: [
+			{ label: 'Entity component system', href: '/docs/engine-systems/entity-component-system.html' },
+			{ label: 'Physics events', href: '/docs/engine-systems/physics-events.html' },
+			{ label: 'Input system', href: '/docs/engine-systems/input-system.html' },
+		],
+	},
+];
+---
+
+<Layout title="Documentation · Open Engine · openengineproject.com" description={docsDescription}>
+	<div class="docs-page">
+		<OpenEngineSiteNav current="docs" />
+		<PageGradientLayer variant="docs" />
+		<ConstellationBackground />
+
+		<main>
+			<aside class="docs-sidebar" aria-label="Documentation navigation">
+				<a class="sidebar-heading" href="/docs" aria-label="Open documentation overview">
+					<span class="sidebar-mark">OE</span>
+					<div>
+						<p>Open Engine</p>
+						<strong>Documentation</strong>
+					</div>
+				</a>
+				<div class="docs-search">
+					<label for="docs-search-input">
+						<span class="search-icon" aria-hidden="true"></span>
+						<input
+							id="docs-search-input"
+							type="search"
+							placeholder="Search documentation"
+							autocomplete="off"
+							spellcheck="false"
+						/>
+						<button class="search-clear" type="button" aria-label="Clear documentation search" hidden>
+							<span aria-hidden="true">×</span>
+						</button>
+					</label>
+					<p class="search-status" aria-live="polite"></p>
+				</div>
+				<nav class="docs-tree">
+					{treeSections.map((section) => (
+						<details class="tree-group" open={section.open} data-tree-type={section.label}>
+							<summary>
+								<span class="tree-chevron" aria-hidden="true"></span>
+								<span class="tree-icon" aria-hidden="true">
+									<DocCardIcon icon={section.cardIcon} type={section.cardType} compact />
+								</span>
+								<span class="tree-label">{section.label}</span>
+								<span class="tree-count">{section.items.length.toString().padStart(2, '0')}</span>
+							</summary>
+							<div class="tree-children">
+								{section.items.map((item) => (
+									item.current ? (
+										<button
+											class="tree-link active"
+											type="button"
+											data-doc-overview
+											aria-current="page"
+										>
+											<span class="tree-node" aria-hidden="true"></span>
+											{item.label}
+										</button>
+									) : item.href ? (
+										<a
+											class="tree-link"
+											href={item.href}
+											data-doc-link
+											data-doc-title={item.label}
+										>
+											<span class="tree-node" aria-hidden="true"></span>
+											{item.label}
+										</a>
+									) : (
+										<span class="tree-link is-pending">
+											<span class="tree-node" aria-hidden="true"></span>
+											{item.label}
+											<em>Soon</em>
+										</span>
+									)
+								))}
+							</div>
+						</details>
+					))}
+				</nav>
+			</aside>
+
+			<div class="docs-content">
+				<div id="docs-overview">
+					<header class="docs-hero">
+						<p class="eyebrow"><span></span> Open Engine reference</p>
+						<h1>Documentation</h1>
+						<p class="intro">
+							Technical references for command-line workflows, editor tools, and the systems behind Open Engine.
+						</p>
+					</header>
+
+					<section class="docs-index" aria-label="Engine documentation">
+						<div class="docs-grid">
+							{documents.map((document) => (
+								<article
+									class="doc-card"
+									role="link"
+									tabindex="0"
+									aria-label={`Open ${document.title}`}
+									data-card-href={document.href}
+									data-card-title={document.title}
+									data-card-type={document.type}
+								>
+									<div class="doc-card-topline">
+										<span>{document.number} · {document.type}</span>
+										<span class="doc-status"><i></i> Published</span>
+									</div>
+									<DocCardIcon icon={document.number} type={document.type} />
+									<h3>{document.title}</h3>
+									<p>{document.description}</p>
+									<div class="doc-card-footer">
+										<a href={document.href} data-doc-link data-doc-title={document.title}>
+											Open document <span aria-hidden="true">↗</span>
+										</a>
+										{document.sourceHref && (
+											<a
+												class="source-link"
+												href={document.sourceHref}
+												data-doc-link
+												data-doc-title={`${document.title} · Markdown`}
+											>
+												{document.sourceLabel}
+											</a>
+										)}
+										<span>{document.format}</span>
+									</div>
+								</article>
+							))}
+						</div>
+					</section>
+				</div>
+
+				<section class="document-viewer" id="document-viewer" hidden aria-live="polite">
+					<div class="viewer-frame-wrap">
+						<div class="viewer-loading" aria-hidden="true">
+							<span></span>
+							Loading reference
+						</div>
+						<iframe
+							id="docs-frame"
+							name="docs-frame"
+							title="Open Engine documentation viewer"
+							scrolling="no"
+						></iframe>
+					</div>
+				</section>
+			</div>
+		</main>
+
+		<script
+			id="docs-search-index"
+			type="application/json"
+			set:html={JSON.stringify(documentSearchIndex)}
+		></script>
+
+		<OpenEngineFooter />
+	</div>
+</Layout>
+
+<script>
+	const overview = document.querySelector<HTMLElement>('#docs-overview');
+	const viewer = document.querySelector<HTMLElement>('#document-viewer');
+	const frame = document.querySelector<HTMLIFrameElement>('#docs-frame');
+	const viewerLoading = document.querySelector<HTMLElement>('.viewer-loading');
+	const docLinks = [...document.querySelectorAll<HTMLAnchorElement>('[data-doc-link]')];
+	const docCards = [...document.querySelectorAll<HTMLElement>('.doc-card[data-card-href]')];
+	const overviewButtons = [...document.querySelectorAll<HTMLElement>('[data-doc-overview]')];
+	const treeLinks = [...document.querySelectorAll<HTMLElement>('.docs-tree .tree-link')];
+	const treeGroups = [...document.querySelectorAll<HTMLDetailsElement>('.docs-tree .tree-group')];
+	const docsSidebar = document.querySelector<HTMLElement>('.docs-sidebar');
+	const docsContent = document.querySelector<HTMLElement>('.docs-content');
+	const searchInput = document.querySelector<HTMLInputElement>('#docs-search-input');
+	const searchClear = document.querySelector<HTMLButtonElement>('.search-clear');
+	const searchStatus = document.querySelector<HTMLElement>('.search-status');
+	const searchIndexElement = document.querySelector<HTMLScriptElement>('#docs-search-index');
+	const docsSearchIndex: Record<string, string> = (() => {
+		try {
+			return JSON.parse(searchIndexElement?.textContent ?? '{}');
+		} catch {
+			return {};
+		}
+	})();
+	let frameResizeObserver: ResizeObserver | undefined;
+	let preservedTreeScrollTop = 0;
+	const docsOverviewScrollKey = 'overview';
+	const docsScrollStorageKey = 'openengine-docs-scroll-positions';
+	const docsScrollPositions: Record<string, number> = (() => {
+		try {
+			return JSON.parse(sessionStorage.getItem(docsScrollStorageKey) ?? '{}');
+		} catch {
+			return {};
+		}
+	})();
+	let activeDocsScrollKey = docsOverviewScrollKey;
+	let pendingDocsScrollTop = docsScrollPositions[docsOverviewScrollKey] ?? 0;
+
+	const restoreTreePosition = (scrollTop: number) => {
+		if (!docsSidebar) return;
+		docsSidebar.scrollTop = scrollTop;
+		requestAnimationFrame(() => {
+			docsSidebar.scrollTop = scrollTop;
+		});
+		window.setTimeout(() => {
+			docsSidebar.scrollTop = scrollTop;
+		}, 0);
+	};
+
+	const applyPendingDocsScrollPosition = () => {
+		window.scrollTo({
+			top: pendingDocsScrollTop,
+			left: window.scrollX,
+			behavior: 'auto',
+		});
+	};
+
+	const sizeFrameToContent = () => {
+		if (!frame?.contentDocument) return;
+		const embeddedDocument = frame.contentDocument;
+		const height = Math.max(
+			embeddedDocument.documentElement?.scrollHeight ?? 0,
+			embeddedDocument.body?.scrollHeight ?? 0,
+		);
+		if (height > 0) frame.style.height = `${height}px`;
+	};
+
+	const normalizedDocPath = (href: string) => {
+		const path = new URL(href, window.location.origin).pathname;
+		return path.replace(/\.md$/, '.html').replace(/\/+$/, '') || '/';
+	};
+
+	const saveActiveDocsScrollPosition = () => {
+		const scrollTop = Math.max(0, window.scrollY);
+		if (scrollTop > 4) docsScrollPositions[activeDocsScrollKey] = scrollTop;
+		else delete docsScrollPositions[activeDocsScrollKey];
+
+		try {
+			sessionStorage.setItem(docsScrollStorageKey, JSON.stringify(docsScrollPositions));
+		} catch {
+			// In-memory scroll restoration still works when storage is unavailable.
+		}
+	};
+
+	const restoreDocsScrollPosition = (scrollKey: string) => {
+		activeDocsScrollKey = scrollKey;
+		pendingDocsScrollTop = docsScrollPositions[scrollKey] ?? 0;
+		applyPendingDocsScrollPosition();
+		requestAnimationFrame(applyPendingDocsScrollPosition);
+		window.setTimeout(applyPendingDocsScrollPosition, 0);
+	};
+
+	const normalizedSearchText = (value: string) => (
+		value.toLocaleLowerCase().replace(/\s+/g, ' ').trim()
+	);
+
+	const matchesSearchTerms = (value: string, terms: string[]) => {
+		const searchableValue = normalizedSearchText(value);
+		return terms.every((term) => searchableValue.includes(term));
+	};
+
+	const updateDocsSearch = () => {
+		const query = normalizedSearchText(searchInput?.value ?? '');
+		const terms = query.split(' ').filter(Boolean);
+
+		treeGroups.forEach((group) => {
+			const groupLinks = [...group.querySelectorAll<HTMLElement>('.tree-link')];
+			const groupLabel = normalizedSearchText(
+				group.querySelector<HTMLElement>('.tree-label')?.textContent ?? '',
+			);
+			const groupLabelMatches = Boolean(query) && matchesSearchTerms(groupLabel, terms);
+			let groupMatches = 0;
+
+			groupLinks.forEach((link) => {
+				const linkPath = link instanceof HTMLAnchorElement
+					? normalizedDocPath(link.getAttribute('href') ?? '')
+					: '';
+				const indexedContent = docsSearchIndex[linkPath] ?? '';
+				const matches = (
+					!query
+					|| groupLabelMatches
+					|| matchesSearchTerms(`${link.textContent ?? ''} ${indexedContent}`, terms)
+				);
+				link.hidden = !matches;
+				if (matches) groupMatches += 1;
+			});
+
+			group.hidden = Boolean(query) && groupMatches === 0;
+
+			if (query) {
+				if (!group.hasAttribute('data-search-open')) {
+					group.dataset.searchOpen = group.open ? 'true' : 'false';
+				}
+				if (groupMatches > 0) group.open = true;
+			} else if (group.hasAttribute('data-search-open')) {
+				group.open = group.dataset.searchOpen === 'true';
+				delete group.dataset.searchOpen;
+			}
+		});
+
+		let matchingCards = 0;
+		docCards.forEach((card) => {
+			const cardPath = normalizedDocPath(card.dataset.cardHref ?? '');
+			const indexedContent = docsSearchIndex[cardPath] ?? '';
+			const matches = (
+				!query
+				|| matchesSearchTerms(`${card.textContent ?? ''} ${indexedContent}`, terms)
+			);
+			card.hidden = !matches;
+			if (matches) matchingCards += 1;
+		});
+
+		if (searchClear) searchClear.hidden = !query;
+		if (searchStatus) {
+			searchStatus.textContent = query
+				? `${matchingCards} ${matchingCards === 1 ? 'reference' : 'references'} found`
+				: '';
+		}
+
+		if (query && matchingCards === 0 && searchStatus) {
+			searchStatus.textContent = 'No references found';
+		}
+	};
+
+	const clearDocsSearch = () => {
+		if (!searchInput) return;
+		searchInput.value = '';
+		updateDocsSearch();
+		searchInput.focus();
+	};
+
+	const setActiveTreeItem = (href?: string) => {
+		const treeScrollTop = docsSidebar?.scrollTop ?? 0;
+		const normalizedHref = href ? normalizedDocPath(href) : undefined;
+		const activeItem = href
+			? treeLinks.find((item) => (
+				item instanceof HTMLAnchorElement
+				&& normalizedDocPath(item.getAttribute('href') ?? '') === normalizedHref
+			))
+			: treeLinks.find((item) => item.hasAttribute('data-doc-overview'));
+
+		treeLinks.forEach((item) => {
+			const active = item === activeItem;
+			item.classList.toggle('active', active);
+			if (active) item.setAttribute('aria-current', 'page');
+			else item.removeAttribute('aria-current');
+		});
+
+		if (activeItem) {
+			const group = activeItem.closest<HTMLDetailsElement>('.tree-group');
+			if (group) group.open = true;
+		}
+
+		restoreTreePosition(treeScrollTop);
+	};
+
+	const showOverview = () => {
+		if (!overview || !viewer) return;
+		saveActiveDocsScrollPosition();
+		overview.hidden = false;
+		viewer.hidden = true;
+		setActiveTreeItem();
+		restoreDocsScrollPosition(docsOverviewScrollKey);
+	};
+
+	const showDocument = (href: string) => {
+		if (!overview || !viewer || !frame) return;
+		saveActiveDocsScrollPosition();
+		const documentScrollKey = normalizedDocPath(href);
+		preservedTreeScrollTop = docsSidebar?.scrollTop ?? 0;
+		if (docsContent) docsContent.style.minHeight = `${docsContent.offsetHeight}px`;
+		overview.hidden = true;
+		viewer.hidden = false;
+		viewerLoading?.removeAttribute('hidden');
+		frame.style.height = '70dvh';
+		frame.src = href;
+		setActiveTreeItem(href);
+		restoreDocsScrollPosition(documentScrollKey);
+	};
+
+	docLinks.forEach((link) => {
+		link.addEventListener('click', (event) => {
+			event.preventDefault();
+			showDocument(link.getAttribute('href') ?? '');
+		});
+	});
+
+	docCards.forEach((card) => {
+		const openCard = () => {
+			showDocument(card.dataset.cardHref ?? '');
+		};
+
+		card.addEventListener('click', (event) => {
+			if ((event.target as HTMLElement).closest('a')) return;
+			openCard();
+		});
+
+		card.addEventListener('keydown', (event) => {
+			if (event.target !== card || (event.key !== 'Enter' && event.key !== ' ')) return;
+			event.preventDefault();
+			openCard();
+		});
+	});
+
+	overviewButtons.forEach((button) => button.addEventListener('click', showOverview));
+	searchInput?.addEventListener('input', updateDocsSearch);
+	searchInput?.addEventListener('search', updateDocsSearch);
+	searchClear?.addEventListener('click', clearDocsSearch);
+	searchInput?.addEventListener('keydown', (event) => {
+		if (event.key !== 'Escape' || !searchInput.value) return;
+		event.preventDefault();
+		event.stopPropagation();
+		clearDocsSearch();
+	});
+
+	frame?.addEventListener('load', () => {
+		viewerLoading?.setAttribute('hidden', '');
+		frameResizeObserver?.disconnect();
+
+		try {
+			const embeddedDocument = frame.contentDocument;
+			if (!embeddedDocument?.head) return;
+			const style = embeddedDocument.createElement('style');
+			style.textContent = `
+				:root {
+					--bg: #101923 !important;
+					--panel: #142231 !important;
+					--panel-2: #192a3b !important;
+					--panel-3: #0e1822 !important;
+					--line: rgba(139, 172, 204, .22) !important;
+					--line-soft: rgba(139, 172, 204, .14) !important;
+					--text: #f1eff6 !important;
+					--muted: #aaa8b8 !important;
+					--dim: #747281 !important;
+					--accent: #6ee7ff !important;
+					--accent-2: #62e99c !important;
+					--code: #05070b !important;
+					--radius: 2px !important;
+					--shadow: 0 24px 70px rgba(0, 0, 0, .34) !important;
+				}
+				.oe-marketing-nav { display: none !important; }
+				body.oe-with-marketing-nav { min-height: 0 !important; }
+				body.oe-with-marketing-nav > .shell {
+					display: block !important;
+					min-height: 0 !important;
+				}
+				body.oe-with-marketing-nav .shell > .sidebar {
+					display: none !important;
+				}
+				body.oe-with-marketing-nav .shell > main {
+					box-sizing: border-box;
+					width: min(100%, 1500px);
+					margin: 0 auto;
+					padding-inline: clamp(20px, 4vw, 56px);
+				}
+				html {
+					height: auto !important;
+					overflow: visible !important;
+					background:
+						radial-gradient(circle at 8% 18%, rgba(45, 99, 177, .14), transparent 34rem),
+						radial-gradient(circle at 92% 42%, rgba(122, 54, 173, .16), transparent 38rem),
+						radial-gradient(circle at 34% 88%, rgba(42, 76, 143, .1), transparent 31rem),
+						#101923 !important;
+					background-repeat: no-repeat !important;
+				}
+				body {
+					height: auto !important;
+					min-height: 0 !important;
+					overflow: visible !important;
+					background:
+						linear-gradient(rgba(110, 231, 255, .022) 1px, transparent 1px),
+						linear-gradient(90deg, rgba(110, 231, 255, .022) 1px, transparent 1px),
+						linear-gradient(180deg, rgba(16, 25, 35, .04), rgba(8, 15, 23, .28)) !important;
+					background-size: 32px 32px, 32px 32px, auto !important;
+					color: #cbc8d3 !important;
+					font-family: Roboto, Inter, ui-sans-serif, system-ui, sans-serif !important;
+					font-weight: 300;
+				}
+				body::-webkit-scrollbar { width: 10px; }
+				body::-webkit-scrollbar-track { background: #05070c; }
+				body::-webkit-scrollbar-thumb {
+					border: 3px solid #05070c;
+					background: rgba(110, 231, 255, .28);
+				}
+				.hero {
+					min-height: 300px;
+					padding-block: clamp(30px, 5vw, 70px);
+					border-bottom: 1px solid rgba(139, 172, 204, .16);
+				}
+				.eyebrow {
+					color: #9cefff !important;
+					font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+					letter-spacing: .11em !important;
+					text-transform: uppercase;
+				}
+				h1 {
+					margin-block: 12px 20px !important;
+					font-family: Roboto, Inter, ui-sans-serif, system-ui, sans-serif !important;
+					font-size: clamp(28px, 3.2vw, 48px) !important;
+					font-weight: 300 !important;
+					line-height: 1 !important;
+					letter-spacing: .055em !important;
+					text-transform: uppercase;
+					background: linear-gradient(104deg, #fff 12%, #a8efff 58%, #a28aff 82%, #ff75dc);
+					-webkit-background-clip: text;
+					background-clip: text;
+					color: transparent !important;
+				}
+				.hero p {
+					color: #aaa8b8 !important;
+					font-size: 16px !important;
+					font-weight: 300;
+					line-height: 1.7 !important;
+				}
+				.button {
+					border-radius: 0 !important;
+					border-color: rgba(110, 231, 255, .24) !important;
+					background: rgba(5, 9, 15, .88) !important;
+					color: #e9e7ee !important;
+					font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+					font-size: 10px !important;
+					font-weight: 600 !important;
+					letter-spacing: .08em;
+					text-transform: uppercase;
+					transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
+				}
+				.button.primary {
+					border-color: rgba(110, 231, 255, .6) !important;
+					background: rgba(110, 231, 255, .09) !important;
+					color: #bff5ff !important;
+				}
+				.button:hover {
+					border-color: rgba(110, 231, 255, .72) !important;
+					background: rgba(110, 231, 255, .11) !important;
+					box-shadow: 0 0 26px rgba(110, 231, 255, .1);
+					text-decoration: none !important;
+				}
+				.preview,
+				.card,
+				.rule,
+				.token-card {
+					border-radius: 2px !important;
+					border-color: rgba(139, 172, 204, .2) !important;
+					background: linear-gradient(145deg, rgba(17, 24, 39, .88), rgba(7, 9, 14, .96)) !important;
+					box-shadow: 0 20px 58px rgba(0, 0, 0, .24) !important;
+				}
+				.card,
+				.rule,
+				.token-card,
+				.editor-icon-gallery-grid figure {
+					transition: border-color .3s ease, box-shadow .3s ease, transform .25s ease;
+				}
+				.card:hover,
+				.rule:hover,
+				.token-card:hover,
+				.editor-icon-gallery-grid figure:hover {
+					border-color: rgba(110, 231, 255, .48) !important;
+					box-shadow: 0 24px 68px rgba(0, 0, 0, .3), 0 0 34px rgba(110, 231, 255, .07) !important;
+					transform: translateY(-2px);
+				}
+				.card header {
+					border-color: rgba(139, 172, 204, .13) !important;
+					background: linear-gradient(90deg, rgba(23, 32, 49, .82), rgba(10, 13, 20, .88)) !important;
+				}
+				.card h3,
+				.token-card h3,
+				.rule h3 {
+					color: #f2f0f6 !important;
+					font-weight: 400 !important;
+				}
+				.card .purpose,
+				ul {
+					color: #aaa8b8 !important;
+				}
+				.section-head {
+					border-color: rgba(139, 172, 204, .2) !important;
+					padding-bottom: 14px !important;
+				}
+				.section-head h2,
+				.section-head h3 {
+					color: #f2f0f6 !important;
+					font-family: Roboto, Inter, ui-sans-serif, system-ui, sans-serif !important;
+					font-size: clamp(22px, 3vw, 34px) !important;
+					font-weight: 300 !important;
+					letter-spacing: .055em !important;
+					text-transform: uppercase;
+				}
+				code,
+				.pill,
+				pre,
+				.mini-demo,
+				.editor-icon-gallery-grid figure {
+					border-radius: 2px !important;
+					border-color: rgba(139, 172, 204, .17) !important;
+					background: rgba(4, 7, 12, .88) !important;
+				}
+				code,
+				pre {
+					color: #c4efff !important;
+				}
+				pre:not(.mermaid) {
+					border: 1px solid rgba(110, 231, 255, .28) !important;
+					border-radius: 8px !important;
+					background:
+						linear-gradient(135deg, rgba(28, 53, 76, .98), rgba(22, 36, 58, .98) 58%, rgba(37, 27, 61, .96)) !important;
+					box-shadow:
+						inset 0 1px 0 rgba(255, 255, 255, .055),
+						0 18px 48px rgba(0, 0, 0, .24),
+						0 0 30px rgba(80, 181, 255, .045) !important;
+					padding: clamp(18px, 2.4vw, 28px) !important;
+				}
+				h2 + pre:not(.mermaid),
+				h3 + pre:not(.mermaid),
+				h4 + pre:not(.mermaid) {
+					margin-top: 16px !important;
+				}
+				pre:not(.mermaid) code {
+					background: transparent !important;
+					color: #d6f4ff !important;
+				}
+				.callout {
+					border-left-color: #6ee7ff !important;
+					border-radius: 0 !important;
+					background: linear-gradient(90deg, rgba(110, 231, 255, .1), rgba(110, 231, 255, .015)) !important;
+					color: #d9f8ff !important;
+				}
+				.mermaid .cluster rect,
+				pre.mermaid svg .cluster rect {
+					fill: transparent !important;
+					stroke: rgba(110, 231, 255, .32) !important;
+				}
+				.diagram-wrap pre.mermaid,
+				.diagram-wrap .mermaid,
+				pre.mermaid,
+				.mermaid svg,
+				pre.mermaid svg,
+				svg[aria-roledescription="flowchart"],
+				svg[aria-roledescription="flowchart-v2"] {
+					background: transparent !important;
+					background-color: transparent !important;
+				}
+				pre.mermaid {
+					border: 0 !important;
+					box-shadow: none !important;
+					padding: 0 !important;
+				}
+				.mermaid .node rect,
+				.mermaid .node polygon,
+				.mermaid .node circle,
+				pre.mermaid svg .node rect,
+				pre.mermaid svg .node polygon,
+				pre.mermaid svg .node circle {
+					fill: rgba(35, 59, 82, .56) !important;
+					stroke: rgba(139, 214, 255, .72) !important;
+				}
+				.mermaid .cluster-label text,
+				.mermaid .cluster-label span,
+				pre.mermaid svg .cluster-label text,
+				pre.mermaid svg .cluster-label span {
+					fill: #d9f8ff !important;
+					color: #d9f8ff !important;
+				}
+				.demo-toggle,
+				.demo-icon.active,
+				.icon-dot.active {
+					background: #3a8fff !important;
+					box-shadow: 0 0 14px rgba(58, 143, 255, .32);
+				}
+				body > pre {
+					box-sizing: border-box;
+					max-width: 980px;
+					margin: 0 auto;
+					padding: clamp(24px, 5vw, 64px);
+					white-space: pre-wrap;
+					overflow-x: hidden;
+					overflow-wrap: anywhere;
+					word-break: break-word;
+					color: #cbc8d3;
+					font: 400 14px/1.75 ui-monospace, SFMono-Regular, Menlo, monospace;
+				}
+			`;
+			embeddedDocument.head.append(style);
+
+			frameResizeObserver = new ResizeObserver(sizeFrameToContent);
+			if (embeddedDocument.documentElement) frameResizeObserver.observe(embeddedDocument.documentElement);
+			if (embeddedDocument.body) frameResizeObserver.observe(embeddedDocument.body);
+			requestAnimationFrame(() => {
+				sizeFrameToContent();
+				requestAnimationFrame(() => {
+					sizeFrameToContent();
+					if (docsContent) docsContent.style.minHeight = '';
+					restoreTreePosition(preservedTreeScrollTop);
+					applyPendingDocsScrollPosition();
+				});
+			});
+		} catch {
+			// Same-origin documents are enhanced when possible; the viewer still works without it.
+		}
+	});
+
+	document.addEventListener('keydown', (event) => {
+		if (
+			event.key === '/'
+			&& searchInput
+			&& document.activeElement !== searchInput
+			&& !(document.activeElement instanceof HTMLInputElement)
+			&& !(document.activeElement instanceof HTMLTextAreaElement)
+		) {
+			event.preventDefault();
+			searchInput.focus();
+			return;
+		}
+		if (event.key === 'Escape' && viewer && !viewer.hidden) showOverview();
+	});
+
+	window.addEventListener('pagehide', saveActiveDocsScrollPosition);
+	restoreDocsScrollPosition(docsOverviewScrollKey);
+</script>
+
+<style>
+	.docs-page {
+		--page-pad-left: max(clamp(24px, calc(12.5vw - 146px), 80px), env(safe-area-inset-left, 0px));
+		--page-pad-right: max(clamp(24px, calc(12.5vw - 146px), 80px), env(safe-area-inset-right, 0px));
+		min-height: 100dvh;
+		position: relative;
+		isolation: isolate;
+		display: flex;
+		flex-direction: column;
+		padding: 0 var(--page-pad-right) max(clamp(28px, 6vw, 48px), env(safe-area-inset-bottom, 0px)) var(--page-pad-left);
+		overflow-x: clip;
+		background: #000;
+	}
+
+	.docs-page > :global(:not(.constellation-canvas):not(.page-gradient-layer)) {
+		position: relative;
+		z-index: 2;
+	}
+
+	.docs-page > :global(.constellation-canvas) { z-index: 1; }
+
+	main {
+		width: min(100%, 1500px);
+		display: grid;
+		grid-template-columns: minmax(230px, 270px) minmax(0, 1fr);
+		align-items: start;
+		gap: clamp(42px, 5vw, 88px);
+		margin: 0 auto;
+		padding: 38px 0 clamp(72px, 9vw, 128px);
+	}
+
+	.docs-sidebar {
+		position: fixed;
+		top: 94px;
+		left: max(var(--page-pad-left), calc((100vw - 1500px) / 2));
+		z-index: 4;
+		width: 270px;
+		max-height: calc(100dvh - 118px);
+		overflow: auto;
+		overflow-anchor: none;
+		overscroll-behavior: contain;
+		padding: 0 0 18px;
+		border: 1px solid rgba(139, 172, 204, .16);
+		background:
+			linear-gradient(rgba(110, 231, 255, .025) 1px, transparent 1px),
+			linear-gradient(90deg, rgba(110, 231, 255, .025) 1px, transparent 1px),
+			linear-gradient(155deg, rgba(17, 23, 36, .88), rgba(5, 7, 12, .92));
+		background-size: 28px 28px, 28px 28px, auto;
+		box-shadow: 0 24px 70px rgba(0, 0, 0, .3);
+		backdrop-filter: blur(12px);
+		scrollbar-width: thin;
+		scrollbar-color: rgba(110, 231, 255, .28) transparent;
+	}
+
+	.sidebar-heading {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 18px;
+		border-bottom: 1px solid rgba(255, 255, 255, .08);
+		background: rgba(3, 5, 9, .66);
+		color: inherit;
+		text-decoration: none;
+		transition: background .25s ease, border-color .25s ease;
+	}
+
+	.sidebar-heading:hover,
+	.sidebar-heading:focus-visible {
+		border-bottom-color: rgba(110, 231, 255, .28);
+		background: rgba(10, 18, 27, .82);
+	}
+
+	.sidebar-heading:focus-visible {
+		outline: 1px solid rgba(110, 231, 255, .75);
+		outline-offset: -2px;
+	}
+
+	.sidebar-mark {
+		display: grid;
+		width: 32px;
+		height: 32px;
+		place-items: center;
+		border: 1px solid rgba(110, 231, 255, .44);
+		background: rgba(110, 231, 255, .08);
+		color: var(--accent-c);
+		font: 600 9px/1 var(--font-mono);
+		letter-spacing: .08em;
+		box-shadow: inset 0 0 18px rgba(110, 231, 255, .05);
+	}
+
+	.sidebar-heading p,
+	.sidebar-heading strong {
+		display: block;
+		margin: 0;
+		font-family: var(--font-mono);
+		text-transform: uppercase;
+	}
+
+	.sidebar-heading p {
+		margin-bottom: 3px;
+		color: #777583;
+		font-size: 9px;
+		font-weight: 600;
+		letter-spacing: .14em;
+	}
+
+	.sidebar-heading strong {
+		color: #e8e6ed;
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: .08em;
+	}
+
+	.docs-search {
+		padding: 14px 14px 5px;
+		border-bottom: 1px solid rgba(255, 255, 255, .05);
+	}
+
+	.docs-search label {
+		position: relative;
+		display: flex;
+		align-items: center;
+		min-height: 38px;
+		border: 1px solid rgba(139, 172, 204, .2);
+		background: rgba(3, 6, 11, .72);
+		transition:
+			border-color .22s ease,
+			background .22s ease,
+			box-shadow .22s ease;
+	}
+
+	.docs-search label:focus-within {
+		border-color: rgba(110, 231, 255, .58);
+		background: rgba(7, 14, 22, .92);
+		box-shadow: 0 0 24px rgba(110, 231, 255, .08);
+	}
+
+	.docs-search label:hover {
+		border-color: rgba(110, 231, 255, .42);
+		background: linear-gradient(
+			90deg,
+			rgba(110, 231, 255, .085),
+			rgba(7, 14, 22, .9) 46%,
+			rgba(110, 231, 255, .025)
+		);
+		box-shadow:
+			0 0 22px rgba(110, 231, 255, .075),
+			inset 24px 0 32px rgba(110, 231, 255, .035);
+	}
+
+	.search-icon {
+		position: relative;
+		flex: 0 0 auto;
+		width: 12px;
+		height: 12px;
+		margin-left: 12px;
+		border: 1px solid #747381;
+		border-radius: 50%;
+		opacity: .82;
+		transition: border-color .2s ease, box-shadow .2s ease, opacity .2s ease;
+	}
+
+	.search-icon::after {
+		content: '';
+		position: absolute;
+		right: -4px;
+		bottom: -2px;
+		width: 5px;
+		height: 1px;
+		background: #747381;
+		transform: rotate(45deg);
+		transform-origin: center;
+		transition: background .2s ease;
+	}
+
+	.docs-search label:hover .search-icon,
+	.docs-search label:focus-within .search-icon {
+		border-color: var(--accent-c);
+		box-shadow: 0 0 10px rgba(110, 231, 255, .26);
+		opacity: 1;
+	}
+
+	.docs-search label:hover .search-icon::after,
+	.docs-search label:focus-within .search-icon::after {
+		background: var(--accent-c);
+	}
+
+	.docs-search input {
+		width: 100%;
+		min-width: 0;
+		border: 0;
+		outline: 0;
+		padding: 10px 34px 10px 10px;
+		background: transparent;
+		color: #f0eef5;
+		font-family: inherit;
+		font-size: 12px;
+		font-weight: 500;
+		line-height: 1.4;
+		letter-spacing: 0;
+		appearance: none;
+	}
+
+	.docs-search input::placeholder {
+		color: #73717f;
+		opacity: 1;
+	}
+
+	.docs-search input::-webkit-search-cancel-button { display: none; }
+
+	.search-clear {
+		position: absolute;
+		top: 50%;
+		right: 5px;
+		display: grid;
+		width: 28px;
+		height: 28px;
+		padding: 0;
+		place-items: center;
+		border: 0;
+		background: transparent;
+		color: #777583;
+		font: 400 18px/1 sans-serif;
+		cursor: pointer;
+		transform: translateY(-50%);
+		transition: color .2s ease, background .2s ease;
+	}
+
+	.search-clear:hover,
+	.search-clear:focus-visible {
+		background: rgba(110, 231, 255, .08);
+		color: #fff;
+	}
+
+	.search-clear:focus-visible {
+		outline: 1px solid rgba(110, 231, 255, .7);
+		outline-offset: -2px;
+	}
+
+	.search-clear[hidden],
+	.search-status:empty,
+	.tree-group[hidden],
+	.tree-link[hidden],
+	.doc-card[hidden] {
+		display: none !important;
+	}
+
+	.search-status {
+		margin: 7px 2px 1px;
+		color: #777583;
+		font: 600 8px/1.4 var(--font-mono);
+		letter-spacing: .08em;
+		text-transform: uppercase;
+	}
+
+	.docs-tree { padding-top: 10px; }
+	.tree-group {
+		--tree-accent: #75e7ff;
+		margin: 0;
+	}
+	.tree-group[data-tree-type="Getting started"] { --tree-accent: #75edbd; }
+	.tree-group[data-tree-type="Rendering"] { --tree-accent: #df8dff; }
+	.tree-group[data-tree-type="Scripting"] { --tree-accent: #8facff; }
+	.tree-group[data-tree-type="Animation"] { --tree-accent: #ffae88; }
+	.tree-group[data-tree-type="Engine systems"] { --tree-accent: #ffd576; }
+
+	.tree-group summary {
+		position: relative;
+		display: grid;
+		grid-template-columns: 10px 27px minmax(0, 1fr) auto;
+		gap: 9px;
+		align-items: center;
+		min-height: 42px;
+		padding: 7px 14px;
+		color: #a8a6b3;
+		font-size: 13px;
+		font-weight: 500;
+		line-height: 1.2;
+		cursor: pointer;
+		list-style: none;
+		overflow: hidden;
+		transition: color .2s ease, background .28s ease, box-shadow .28s ease;
+	}
+
+	.tree-group summary::-webkit-details-marker { display: none; }
+	.tree-group summary::after {
+		content: '';
+		position: absolute;
+		inset: 6px auto 6px 0;
+		width: 2px;
+		background: var(--tree-accent);
+		box-shadow: 0 0 12px color-mix(in srgb, var(--tree-accent) 85%, transparent);
+		opacity: 0;
+		transform: scaleY(.25);
+		transition: opacity .2s ease, transform .28s ease;
+	}
+
+	.tree-group summary:hover {
+		color: #f3f1f7;
+		background: linear-gradient(
+			90deg,
+			color-mix(in srgb, var(--tree-accent) 10.5%, transparent),
+			color-mix(in srgb, var(--tree-accent) 1.8%, transparent)
+		);
+		box-shadow: inset 28px 0 36px color-mix(in srgb, var(--tree-accent) 3.5%, transparent);
+	}
+
+	.tree-group summary:hover::after {
+		opacity: 1;
+		transform: scaleY(1);
+	}
+
+	.tree-chevron {
+		width: 0;
+		height: 0;
+		border-top: 4px solid transparent;
+		border-bottom: 4px solid transparent;
+		border-left: 5px solid color-mix(in srgb, var(--tree-accent) 58%, #716e7c);
+		transform-origin: 40% 50%;
+		transition: transform .2s ease, border-color .2s ease, filter .2s ease;
+	}
+
+	.tree-group summary:hover .tree-chevron {
+		border-left-color: var(--tree-accent);
+		filter: drop-shadow(0 0 5px color-mix(in srgb, var(--tree-accent) 80%, transparent));
+	}
+
+	.tree-group[open] > summary .tree-chevron {
+		transform: rotate(90deg);
+		border-left-color: var(--tree-accent);
+	}
+
+	.tree-icon {
+		display: grid;
+		width: 24px;
+		height: 24px;
+		place-items: center;
+		border: 1px solid color-mix(in srgb, var(--tree-accent) 24%, transparent);
+		background: color-mix(in srgb, var(--tree-accent) 5.5%, transparent);
+		color: color-mix(in srgb, var(--tree-accent) 72%, #858291);
+		font: 600 8px/1 var(--font-mono);
+		letter-spacing: .05em;
+		transition: color .22s ease, border-color .22s ease, background .22s ease, box-shadow .22s ease, transform .22s ease;
+	}
+
+	.tree-group summary:hover .tree-icon {
+		border-color: color-mix(in srgb, var(--tree-accent) 48%, transparent);
+		background: color-mix(in srgb, var(--tree-accent) 11%, transparent);
+		color: var(--tree-accent);
+		box-shadow: 0 0 18px color-mix(in srgb, var(--tree-accent) 12%, transparent);
+		transform: translateX(2px);
+	}
+
+	.tree-group[open] > summary .tree-icon {
+		border-color: color-mix(in srgb, var(--tree-accent) 24%, transparent);
+		background: color-mix(in srgb, var(--tree-accent) 6.5%, transparent);
+		color: var(--tree-accent);
+	}
+
+	.tree-label {
+		min-width: 0;
+		transition: transform .22s ease;
+	}
+
+	.tree-group summary:hover .tree-label { transform: translateX(2px); }
+	.tree-count {
+		color: color-mix(in srgb, var(--tree-accent) 42%, #5f5c69);
+		font: 600 8px/1 var(--font-mono);
+		letter-spacing: .08em;
+		transition: color .2s ease;
+	}
+
+	.tree-group summary:hover .tree-count { color: var(--tree-accent); }
+
+	.tree-children {
+		position: relative;
+		margin: 0 0 6px 47px;
+		padding: 2px 9px 4px 16px;
+		border-left: 1px solid color-mix(in srgb, var(--tree-accent) 14%, transparent);
+	}
+
+	.tree-link {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-height: 32px;
+		padding: 6px 8px;
+		color: #898694;
+		font-size: 12px;
+		line-height: 1.4;
+		text-decoration: none;
+		transition: color .2s ease, background .28s ease, transform .22s ease, box-shadow .28s ease;
+	}
+
+	button.tree-link {
+		width: 100%;
+		border: 0;
+		background: transparent;
+		font-family: inherit;
+		font-size: 12px;
+		line-height: 1.4;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.tree-link:not(.is-pending):hover {
+		color: #fff;
+		background: linear-gradient(
+			90deg,
+			color-mix(in srgb, var(--tree-accent) 11.5%, transparent),
+			color-mix(in srgb, var(--tree-accent) 1.5%, transparent)
+		);
+		box-shadow: inset 14px 0 24px color-mix(in srgb, var(--tree-accent) 3.5%, transparent);
+		transform: translateX(3px);
+	}
+
+	.tree-node {
+		flex: 0 0 auto;
+		width: 5px;
+		height: 5px;
+		border: 1px solid #5f5c69;
+		transform: rotate(45deg);
+		transition: border-color .2s ease, background .2s ease, box-shadow .2s ease, transform .22s ease;
+	}
+
+	.tree-link:not(.is-pending):hover .tree-node {
+		border-color: var(--tree-accent);
+		background: color-mix(in srgb, var(--tree-accent) 82%, transparent);
+		box-shadow: 0 0 11px color-mix(in srgb, var(--tree-accent) 72%, transparent);
+		transform: rotate(45deg) scale(1.14);
+	}
+
+	.tree-link.active {
+		background: linear-gradient(90deg, color-mix(in srgb, var(--tree-accent) 10%, transparent), transparent);
+		color: #f7f6fa;
+	}
+
+	.tree-link.active .tree-node {
+		border-color: var(--tree-accent);
+		background: var(--tree-accent);
+		box-shadow: 0 0 10px color-mix(in srgb, var(--tree-accent) 70%, transparent);
+	}
+
+	.tree-link.is-pending { color: #666370; }
+	.tree-link em {
+		margin-left: auto;
+		color: #55525e;
+		font: 600 7px/1 var(--font-mono);
+		letter-spacing: .1em;
+		text-transform: uppercase;
+	}
+
+	.tree-group summary:focus-visible,
+	.tree-link:focus-visible {
+		outline: 1px solid color-mix(in srgb, var(--tree-accent) 72%, transparent);
+		outline-offset: -2px;
+		color: #fff;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.tree-group summary,
+		.tree-group summary::after,
+		.tree-chevron,
+		.tree-icon,
+		.tree-label,
+		.tree-link,
+		.tree-node {
+			transition-duration: .01ms;
+		}
+	}
+
+	.docs-content {
+		grid-column: 2;
+		min-width: 0;
+		overflow-anchor: none;
+	}
+
+	.document-viewer {
+		min-width: 0;
+		scroll-margin-top: 92px;
+	}
+
+	.document-viewer[hidden],
+	#docs-overview[hidden],
+	.viewer-loading[hidden] {
+		display: none;
+	}
+
+	.viewer-frame-wrap {
+		position: relative;
+		min-height: 320px;
+		overflow: hidden;
+		border: 1px solid rgba(139, 172, 204, .18);
+		background: #101923;
+		box-shadow: 0 26px 90px rgba(0, 0, 0, .35);
+	}
+
+	.viewer-loading {
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 10px;
+		background: #101923;
+		color: #797684;
+		font: 600 9px/1 var(--font-mono);
+		letter-spacing: .12em;
+		text-transform: uppercase;
+	}
+
+	.viewer-loading span {
+		width: 7px;
+		height: 7px;
+		background: var(--accent-c);
+		box-shadow: 0 0 15px rgba(110, 231, 255, .75);
+		animation: viewer-pulse 1s ease-in-out infinite alternate;
+	}
+
+	@keyframes viewer-pulse {
+		to { opacity: .32; transform: scale(.72); }
+	}
+
+	#docs-frame {
+		display: block;
+		width: 100%;
+		height: 70dvh;
+		border: 0;
+		background: #101923;
+		overflow: hidden;
+	}
+
+	.docs-hero { max-width: 1240px; }
+
+	.eyebrow {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin: 0 0 20px;
+		color: #b5b2c2;
+		font: 600 11px/1.4 var(--font-mono);
+		letter-spacing: .14em;
+		text-transform: uppercase;
+	}
+
+	.eyebrow span {
+		width: 8px;
+		height: 8px;
+		background: var(--accent-c);
+		box-shadow: 0 0 18px rgba(110, 231, 255, .8);
+	}
+
+	h1 {
+		max-width: 780px;
+		margin: 0;
+		font-family: 'Roboto', Inter, ui-sans-serif, monospace;
+		font-size: clamp(38px, 5.8vw, 74px);
+		font-weight: 300;
+		line-height: .96;
+		letter-spacing: .065em;
+		text-transform: uppercase;
+		text-shadow: 0 0 22px rgba(110, 231, 255, .13);
+		background: linear-gradient(104deg, #fff 16%, #a8efff 58%, #a28aff 82%, #ff75dc);
+		-webkit-background-clip: text;
+		background-clip: text;
+		color: transparent;
+	}
+
+	.intro {
+		max-width: 760px;
+		margin: 34px 0 0;
+		color: #aaa8b8;
+		font-size: clamp(18px, 1.65vw, 23px);
+		font-weight: 300;
+		line-height: 1.65;
+	}
+
+	.docs-index {
+		margin-top: clamp(34px, 4vw, 52px);
+		padding-top: clamp(20px, 2vw, 28px);
+		border-top: 1px solid rgba(255, 255, 255, .1);
+	}
+
+	.section-heading {
+		display: flex;
+		justify-content: space-between;
+		align-items: end;
+		gap: 24px;
+		margin-bottom: 28px;
+	}
+
+	.section-heading p {
+		margin: 0 0 10px;
+		color: #8d8999;
+		font: 600 11px/1.3 var(--font-mono);
+		letter-spacing: .13em;
+		text-transform: uppercase;
+	}
+
+	.section-heading > p { margin: 0 0 6px; }
+
+	h2 {
+		margin: 0;
+		font-family: 'Roboto', Inter, ui-sans-serif, sans-serif;
+		font-size: clamp(30px, 4.2vw, 58px);
+		font-weight: 300;
+		line-height: 1;
+		letter-spacing: .055em;
+		text-transform: uppercase;
+	}
+
+	.docs-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: clamp(14px, 2vw, 24px);
+	}
+
+	.doc-card {
+		--card-accent: #75e7ff;
+		min-height: 330px;
+		display: flex;
+		flex-direction: column;
+		padding: clamp(26px, 3vw, 42px);
+		border: 1px solid color-mix(in srgb, var(--card-accent) 38%, transparent);
+		background: linear-gradient(145deg, rgba(21, 27, 42, .86), rgba(8, 8, 13, .93));
+		box-shadow: 0 24px 80px rgba(0, 0, 0, .28);
+		cursor: pointer;
+		transition: transform .25s ease, border-color .5s ease, box-shadow .5s ease;
+	}
+
+	.doc-card[data-card-type="Rendering"] { --card-accent: #df8dff; }
+	.doc-card[data-card-type="Scripting"] { --card-accent: #8facff; }
+	.doc-card[data-card-type="Animation"] { --card-accent: #ffae88; }
+	.doc-card[data-card-type="Engine systems"] { --card-accent: #ffd576; }
+	.doc-card[data-card-type="Contributors"] { --card-accent: #c3c8d7; }
+	.doc-card[data-card-type="Getting started"] { --card-accent: #75edbd; }
+
+	.doc-card:nth-child(2) {
+		background: linear-gradient(145deg, rgba(31, 22, 40, .84), rgba(8, 8, 13, .93));
+	}
+
+	.doc-card:hover,
+	.doc-card:focus-visible {
+		transform: translateY(-3px) scale(1.006);
+		border-color: color-mix(in srgb, var(--card-accent) 72%, transparent);
+		box-shadow:
+			0 28px 90px rgba(0, 0, 0, .36),
+			0 0 50px color-mix(in srgb, var(--card-accent) 14%, transparent);
+	}
+
+	.doc-card:focus-visible {
+		outline: 1px solid color-mix(in srgb, var(--card-accent) 82%, transparent);
+		outline-offset: 4px;
+	}
+
+	.doc-card-topline {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		gap: 18px;
+		color: #a6a3b4;
+		font: 600 10px/1.25 var(--font-mono);
+		letter-spacing: .12em;
+		text-transform: uppercase;
+	}
+
+	.doc-status {
+		display: inline-flex;
+		align-items: center;
+		gap: 7px;
+		padding: 6px 9px;
+		border: 1px solid rgba(98, 233, 156, .28);
+		border-radius: 999px;
+		background: rgba(13, 75, 43, .25);
+		color: #75eea8;
+		white-space: nowrap;
+	}
+
+	.doc-status i {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: #62e99c;
+		box-shadow: 0 0 12px rgba(98, 233, 156, .7);
+	}
+
+	h3 {
+		margin: 24px 0 16px;
+		color: #f4f2f8;
+		font-size: clamp(24px, 2.5vw, 36px);
+		font-weight: 400;
+		line-height: 1.15;
+	}
+
+	.doc-card > p {
+		max-width: 620px;
+		margin: 0;
+		color: #aaa8b8;
+		font-size: 16px;
+		font-weight: 300;
+		line-height: 1.65;
+	}
+
+	.doc-card-footer {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 12px 20px;
+		margin-top: auto;
+		padding-top: 34px;
+		border-top: 1px solid rgba(255, 255, 255, .085);
+	}
+
+	.doc-card-footer a {
+		color: var(--accent-c);
+		font: 600 11px/1.3 var(--font-mono);
+		letter-spacing: .08em;
+		text-decoration: none;
+		text-transform: uppercase;
+	}
+
+	.doc-card-footer a:hover { color: #fff; }
+	.doc-card-footer .source-link { color: #aaa8b8; }
+
+	.doc-card-footer > span {
+		margin-left: auto;
+		color: #777483;
+		font: 600 10px/1.3 var(--font-mono);
+		letter-spacing: .1em;
+		text-transform: uppercase;
+	}
+
+	.foot {
+		width: min(100%, 1500px);
+		margin: auto auto 0;
+		padding-top: 24px;
+		border-top: 1px solid rgba(255, 255, 255, .08);
+		text-align: center;
+		color: var(--muted);
+		font-size: 13px;
+	}
+	.foot a { color: inherit; text-decoration-color: rgba(182,178,191,.24); text-underline-offset: 3px; }
+
+	@media (max-width: 780px) {
+		.docs-page {
+			--page-pad-left: max(14px, env(safe-area-inset-left, 0px));
+			--page-pad-right: max(14px, env(safe-area-inset-right, 0px));
+		}
+
+		main {
+			width: 100%;
+			grid-template-columns: 1fr;
+			gap: 54px;
+			padding-top: 38px;
+		}
+
+		.docs-sidebar {
+			position: relative;
+			top: auto;
+			left: auto;
+			width: min(100%, 380px);
+			max-height: none;
+			overflow: visible;
+			padding-bottom: 14px;
+		}
+
+		.docs-content { grid-column: auto; }
+		.docs-grid { grid-template-columns: 1fr; }
+		.section-heading { align-items: start; }
+		.doc-card { min-height: 300px; }
+	}
+
+	@media (max-width: 480px) {
+		h1 { font-size: clamp(36px, 10.6vw, 48px); letter-spacing: .04em; }
+		.intro { margin-top: 24px; font-size: 16px; }
+		.section-heading { display: block; }
+		.section-heading > p { margin-top: 14px; }
+		.doc-card { min-height: 0; padding: 24px 20px; }
+		.doc-card-topline { align-items: start; }
+		.doc-card-footer > span { width: 100%; margin-left: 0; }
+		.viewer-frame-wrap { min-height: 260px; }
+		.foot { width: 100%; font-size: 10px; }
+	}
+</style>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scripting and Hot Reload Architecture · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="gameengine-scripting-and-hot-reload-architecture-overview">GameEngine Scripting and Hot Reload: Architecture Overview</h1>
+<p>This document describes how the Scripting, CoreBridge, and HotReload subsystems fit together after the recent cleanup. It is intended as an up‑to‑date, high‑level guide for contributors and reviewers.</p>
+<h2 id="quick-mental-model">Quick mental model</h2>
+<ul>
+<li>Native Engine embeds the .NET runtime (CoreCLR) using hostfxr and exposes a stable C ABI (Scripting ABI)</li>
+<li>Managed CoreBridge exposes UnmanagedCallersOnly entry points consumed by native</li>
+<li>Managed HotReload is a core, always‑loaded assembly that orchestrates loading/unloading the user Scripts assembly</li>
+<li>Scripts is the user code assembly that is hot‑reloadable via a collectible AssemblyLoadContext</li>
+</ul>
+<pre><code>Engine (C++) ── hostfxr  CoreCLRHost ── CoreBridge (C#) ─ HotReload (C# core)
+                                               │                     │
+                                               └─────── Scripts (C# user, collectible)
+</code></pre>
+<h2 id="repos-and-paths">Repos and paths</h2>
+<ul>
+<li>Managed/CoreBridge/ … GameEngine.CoreBridge.dll (managed façade and ABI surface)</li>
+<li>Managed/HotReload/  … GameEngine.HotReload.dll (core infrastructure; never unloaded)</li>
+<li>Assets/             … Authoring source for user scripts (copied next to the editor/runtime under build/bin/<config>/Assets)</config></li>
+<li>build/bin/<config>/ScriptAssemblies/ … Auto-generated GameEngine.Scripts.csproj and GameEngine.Scripts.dll (user scripts; hot‑reloaded)</config></li>
+<li>Tests/ManagedTestAssemblies/DomainRoutingTest/ … Canonical test assembly for domain isolation and ABI exercises</li>
+</ul>
+<p>Path resolution at runtime is centralized in Engine/Source/Scripting/PathResolver.cpp and falls back to:</p>
+<ul>
+<li>build tree bin dirs, then source tree managed bin dirs</li>
+<li>configurable overrides via project/native context when needed</li>
+</ul>
+<h2 id="key-components">Key components</h2>
+<ul>
+<li>CoreCLRHost (C++):
+<ul>
+<li>Initializes CoreCLR via hostfxr</li>
+<li>Loads CoreBridge and resolves UCO entry points</li>
+<li>Calls into HotReload pipeline to load/unload Scripts</li>
+<li>Provides token path (QueryExport, InvokeByToken) and helpers</li>
+</ul>
+</li>
+<li>Scripting ABI (C++): stable C interface shared with managed side; thin wrapper around CoreBridge UCOs</li>
+<li>CoreBridge (C#):
+<ul>
+<li>UnmanagedCallersOnly functions: Initialize, AcceptPackage, LoadUserScriptsAssembly, QueryExport, InvokeByToken, UnloadDomain, perf/diagnostics helpers, etc.</li>
+<li>Delegates to HotReloadManager for actual work</li>
+</ul>
+</li>
+<li>HotReloadManager (C#):
+<ul>
+<li>Maintains stable AppDomain/ALC for core and collectible ALC for Scripts</li>
+<li>Implements preload/swap/unload; maintains per‑domain token caches and perf counters</li>
+</ul>
+</li>
+<li>Scripts assembly (C#, GameEngine.Scripts.dll):
+<ul>
+<li>User code compiled from Assets/**/*.cs into build/bin/<config>/ScriptAssemblies/GameEngine.Scripts.dll</config></li>
+<li>Standard entry point type is GameEngine.Scripts.ScriptsEntryPoint with OnAssemblyLoaded/OnAssemblyUnloading defined in user/test code (e.g., Assets or a dedicated test assembly), not in engine-owned source</li>
+<li>Any public static methods can be invoked by name or token</li>
+</ul>
+</li>
+</ul>
+<h2 id="hot-reload-lifecycle-runtime">Hot reload lifecycle (runtime)</h2>
+<ol>
+<li>Engine starts CoreCLRHost with a .runtimeconfig.json (resolved via PathResolver)</li>
+<li>CoreCLRHost resolves CoreBridge and calls CoreBridge.Initialize</li>
+<li>When asked to load Scripts, CoreCLRHost calls CoreBridge.LoadUserScriptsAssembly(pathUtf8)</li>
+<li>CoreBridge hands off to HotReloadManager which loads the DLL into a collectible ALC, calls ScriptsEntryPoint.OnAssemblyLoaded()</li>
+<li>Engine invokes methods by token or name via CoreBridge; tokens are stable within a managed domain</li>
+<li>On swap/unload, HotReloadManager unloads the collectible ALC, calls OnAssemblyUnloading(), and clears caches</li>
+</ol>
+<h2 id="errorresult-codes-aligned-across-nativemanaged">Error/result codes (aligned across native/managed)</h2>
+<ul>
+<li>0 … Ok</li>
+<li>-1 … Generic failure (unspecified)</li>
+<li>-2 … InvalidArg</li>
+<li>-3 … NotFound (e.g., method not found)</li>
+<li>-4 … NotInitialized (e.g., swap without prior preload)</li>
+</ul>
+<p>These map to GE_Result_* in native and ScriptingOpResult in managed.</p>
+<h2 id="token-api">Token API</h2>
+<ul>
+<li>QueryExport(domain, “MethodName”) → uint64 token</li>
+<li>InvokeByToken(domain, token) → int32 result</li>
+<li>Name invoke path exists primarily for tests and bootstrap; production code should prefer tokens</li>
+</ul>
+<h2 id="diagnostics-and-metrics">Diagnostics and metrics</h2>
+<ul>
+<li>CoreBridge exposes counters and diagnostics subscriptions (compilation events, reload events)</li>
+<li>Tests read these via UnmanagedCallersOnly methods: GetPerfCounters, ResetPerfCounters, packed counters, etc.</li>
+</ul>
+<h2 id="what-we-removed-or-deprecated">What we removed or deprecated</h2>
+<ul>
+<li>ComponentEntryPoint: legacy string‑based command path, fully removed from managed. Native leftovers cleaned up; CoreCLRHost no longer caches any ComponentEntryPoint delegates.</li>
+<li>Earlier shadow-copying and bootstrap hot-reload documentation is historical; the collectible AssemblyLoadContext and ScriptAssemblies pipeline described here is the current path.</li>
+<li>Sandbox and legacy demo folders were deleted; examples moved to Examples/ScriptingDemo.</li>
+</ul>
+<h2 id="building-and-testing">Building and testing</h2>
+<ul>
+<li>CMake options
+<ul>
+<li>ENABLE_SCRIPTING=ON … build scripting features (default ON in scripting builds)</li>
+<li>BUILD_TESTING=ON … enable tests</li>
+<li>BUILD_MANAGED_HOTRELOAD=ON … ensure CoreBridge/HotReload managed projects are built before tests</li>
+</ul>
+</li>
+<li>Primary native tests:
+<ul>
+<li>ScriptingAbiIntegrationTests (gtest) – end‑to‑end ABI and HotReload coverage.</li>
+<li>EngineCoreClrSmokeTests (gtest) – <strong>cross‑platform CoreCLR hosting smoke test</strong> that boots <code>CoreCLRHost</code>, resolves <code>CoreBridge.SanityPing</code>, and verifies a simple call into managed code. See <code>Docs/CrossPlatformScriptingRoadmap.md</code> for exact commands on Windows and Linux (Docker).</li>
+</ul>
+</li>
+<li>DomainRoutingTest.dll is built from Tests/ManagedTestAssemblies/DomainRoutingTest and copied into the build tree; tests expect it under ${CMAKE_BINARY_DIR}/Tests/ManagedTestAssemblies/…</li>
+</ul>
+<h2 id="common-pitfalls">Common pitfalls</h2>
+<ul>
+<li>Working directory matters for path lookups in tests; CTest sets it to ${CMAKE_BINARY_DIR}</li>
+<li>Ensure the correct TFM (net9.0) and configuration (Debug/Release) are used consistently across copy steps</li>
+<li>If CoreBridge.Initialize fails, verify PathResolver can find both CoreBridge.dll and HotReload.dll next to the test exe (the test CMake target copies them)</li>
+</ul>
+<h2 id="where-to-look-in-code">Where to look in code</h2>
+<ul>
+<li>Engine/Source/Scripting/CoreCLRHost.cpp … runtime host, CoreBridge UCO resolution, hot reload load path</li>
+<li>Engine/Source/Scripting/ScriptingABI.cpp … native ABI bridge to managed UCOs</li>
+<li>Engine/Source/Scripting/PathResolver.cpp … managed assembly/runtimeconfig discovery</li>
+<li>Managed/CoreBridge/CoreBridge.cs … UCO entry points and thin façade</li>
+<li>Managed/HotReload/HotReloadManager.cs … business logic for reloads, tokens, counters</li>
+<li>Assets/**/*.cs … user scripts compiled into GameEngine.Scripts.dll at build/runtime (see docs/Scripting/InitializeOnLoadAndLogging.md for the detailed layout)</li>
+</ul>
+<h2 id="cross-platform-status-phase-0">Cross-platform status (Phase 0)</h2>
+<ul>
+<li>CoreCLRHost uses the official <code>nethost + hostfxr</code> bootstrap and is wired for <strong>Windows and Linux</strong> (and future macOS) via the <code>NETHOST_AVAILABLE</code> CMake define. When <code>NETHOST_AVAILABLE</code> is missing (no .NET host packs), <code>CoreCLRHost::Initialize</code> returns <code>false</code> and EngineCoreClrSmokeTests will skip with a clear message instead of pretending hosting works.</li>
+<li>CompileServer and the async hot‑reload transport are still <strong>Windows‑only</strong> today; the cross‑platform transport and compile server work are covered in <code>Docs/CrossPlatformScriptingRoadmap.md</code> (Phase 1 / Phase 2).</li>
+</ul>
+<h2 id="examples">Examples</h2>
+<ul>
+<li>Examples/ScriptingDemo … simple managed demo of the reload flow</li>
+</ul>
+<h2 id="status">Status</h2>
+<p>This document reflects the current state after:</p>
+<ul>
+<li>HotReload moved to Managed/HotReload</li>
+<li>ComponentEntryPoint removed</li>
+<li>Demos relocated under Examples</li>
+<li>Result codes aligned</li>
+</ul>
+<p>If anything here drifts, please update this document alongside the code changes.</p>
+  </main>
+</body>
+</html>

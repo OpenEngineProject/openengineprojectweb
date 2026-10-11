@@ -1,0 +1,640 @@
+---
+import Layout from '../layouts/Layout.astro';
+import OpenEngineSiteNav from '../components/OpenEngineSiteNav.astro';
+import ConstellationBackground from '../components/ConstellationBackground.astro';
+import OpenEngineFooter from '../components/OpenEngineFooter.astro';
+---
+
+<Layout title="Open Engine · openengineproject.com">
+	<div class="home-page">
+		<OpenEngineSiteNav current="home" />
+		<ConstellationBackground />
+
+		<main class="home-hero" aria-labelledby="landing-heading">
+			<div class="home-copy">
+				<p class="eyebrow">Open Engine · Game engine</p>
+				<h1 id="landing-heading">Open Engine</h1>
+				<p class="intro">A real-time MIT licenced engine for building worlds, designing gameplay, and bringing your games to life.</p>
+				<div class="hero-links" aria-label="Explore Open Engine" data-constellation-clear="54">
+					<a href="/features">Explore features <span aria-hidden="true">↗</span></a>
+					<a href="/roadmap">View roadmap <span aria-hidden="true">↗</span></a>
+				</div>
+			</div>
+
+			<div class="cube-stage" data-cube-stage role="button" tabindex="0" aria-label="Open Engine cube logo. Drag to rotate it, or activate to play a random animation.">
+				<canvas class="cube-canvas" data-cube-canvas aria-hidden="true"></canvas>
+			</div>
+
+		</main>
+
+			<section class="engine-principles" aria-label="Engine foundations">
+				<ul class="principles-grid">
+					<li>
+						<span>01 · Rendering</span>
+						<h3>GPU-driven from the start</h3>
+						<p>Bindless, GPU-driven rendering with Vulkan first-class on Windows and Linux, and Metal first-class on macOS.</p>
+					</li>
+					<li>
+						<span>02 · Shading</span>
+						<h3>Physically based</h3>
+						<p>PBR materials with OpenPBR support, shaders, image-based lighting, and real-world light values form the default rendering workflow.</p>
+					</li>
+					<li>
+						<span>03 · Runtime</span>
+						<h3>Data-oriented ECS</h3>
+						<p>A data-oriented entity-component stack is the default, built for clear composition, scheduling, and scale.</p>
+					</li>
+					<li>
+						<span>04 · Interface</span>
+						<h3>Data-driven UI</h3>
+						<p>XML/HTML structure and CSS-style presentation support fast iteration with live editing and hot reload.</p>
+					</li>
+					<li>
+						<span>05 · Scripting</span>
+						<h3>C# or C++</h3>
+						<p>The editor detects user code, compiles CoreCLR-backed C# or native C++, and keeps iteration moving with hot reload.</p>
+					</li>
+					<li>
+						<span>06 · Extensibility</span>
+						<h3>Packages and plugins</h3>
+						<p>Jolt Physics integration ships as a core engine package, but can be swapped out through packages.</p>
+					</li>
+					<li>
+						<span>07 · Post FX</span>
+						<h3>Cinematic post-processing</h3>
+						<p>Post-processing stack for bloom, tonemapping, exposure, film simulation, depth of field, lens flares, chromatic aberration, and stylized painting effects.</p>
+					</li>
+					<li>
+						<span>08 · UI toolkit</span>
+						<h3>Interface built to iterate</h3>
+						<p>Yoga-powered layouts, CSS-style presentation, layered controls, Slug text rendering, and hot reload support responsive game interfaces.</p>
+					</li>
+				</ul>
+			</section>
+
+			<figure class="home-editor-preview">
+				<a href="/features" aria-label="Explore the Open Engine editor">
+					<img
+						src="/images/editor-captures/ocean-ibl-workspace.png"
+						alt="Open Engine editor showing a sailing ship at sea beneath a purple evening sky."
+						loading="lazy"
+						decoding="async"
+					/>
+					<figcaption>Explore the editor <span aria-hidden="true">↗</span></figcaption>
+				</a>
+			</figure>
+
+		<OpenEngineFooter />
+	</div>
+
+	<script>
+		import * as THREE from 'three';
+
+		const homePage = document.querySelector<HTMLElement>('.home-page');
+		if (homePage) {
+			const widescreenAspect = 16 / 9;
+			const compactAspect = 2.45;
+
+			const clampLayoutValue = (value: number, minimum: number, maximum: number) => Math.min(Math.max(value, minimum), maximum);
+			const interpolate = (start: number, end: number, progress: number) => start + (end - start) * progress;
+			const pixels = (value: number) => `${value.toFixed(3)}px`;
+
+			const updateWideLayout = () => {
+				const viewportWidth = window.innerWidth;
+				const viewportHeight = Math.max(window.innerHeight, 1);
+				const aspectRatio = viewportWidth / viewportHeight;
+				const progress = clampLayoutValue((aspectRatio - widescreenAspect) / (compactAspect - widescreenAspect), 0, 1);
+
+				const baseRowGap = clampLayoutValue(viewportWidth * 0.06, 32, 104);
+				const baseCubeHeight = Math.min(viewportWidth * 0.56, 700);
+				const compactCubeHeight = Math.min(baseCubeHeight, viewportHeight * 0.55, 540);
+				const baseCardsPadding = clampLayoutValue(viewportWidth * 0.06, 48, 88) + 1;
+				const compactCardsPadding = (baseCardsPadding - 1) * 0.65 + 1;
+
+				homePage.style.setProperty('--home-hero-row-gap', pixels(interpolate(baseRowGap, 0, progress)));
+				homePage.style.setProperty('--home-cube-stage-height', pixels(interpolate(baseCubeHeight, compactCubeHeight, progress)));
+				homePage.style.setProperty('--engine-principles-padding-top', pixels(interpolate(baseCardsPadding, compactCardsPadding, progress)));
+			};
+
+			updateWideLayout();
+			window.addEventListener('resize', updateWideLayout, { passive: true });
+			window.addEventListener('pagehide', () => {
+				window.removeEventListener('resize', updateWideLayout);
+			}, { once: true });
+		}
+
+		const canvas = document.querySelector<HTMLCanvasElement>('[data-cube-canvas]');
+		const stage = document.querySelector<HTMLElement>('[data-cube-stage]');
+
+		if (canvas && stage) {
+			const scene = new THREE.Scene();
+			const camera = new THREE.OrthographicCamera(-2.4, 2.4, 2.4, -2.4, 0.1, 100);
+			camera.position.set(5, 5, 5);
+			camera.lookAt(0, 0, 0);
+
+			const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+			renderer.setClearColor(0x000000, 0);
+			renderer.outputColorSpace = THREE.SRGBColorSpace;
+			renderer.toneMapping = THREE.ACESFilmicToneMapping;
+			renderer.toneMappingExposure = 1.05;
+
+			function makeLogoTexture(colors: { topLeft: string; topRight: string; bottomLeft: string; bottomRight: string; center: string }) {
+				const textureCanvas = document.createElement('canvas');
+				textureCanvas.width = 256;
+				textureCanvas.height = 256;
+				const context = textureCanvas.getContext('2d');
+				if (!context) return new THREE.Texture();
+				const parse = (color: string) => [1, 3, 5].map((offset) => Number.parseInt(color.slice(offset, offset + 2), 16));
+				const [topLeft, topRight, bottomLeft, bottomRight, center] = [colors.topLeft, colors.topRight, colors.bottomLeft, colors.bottomRight, colors.center].map(parse);
+				const image = context.createImageData(256, 256);
+				for (let y = 0; y < 256; y += 1) {
+					const v = y / 255;
+					for (let x = 0; x < 256; x += 1) {
+						const u = x / 255;
+						const centerDistance = Math.hypot(u - 0.5, v - 0.5);
+						const centerMix = Math.pow(Math.max(0, 1 - centerDistance / 0.68), 2);
+						const index = (y * 256 + x) * 4;
+						for (let channel = 0; channel < 3; channel += 1) {
+							const top = topLeft[channel] * (1 - u) + topRight[channel] * u;
+							const bottom = bottomLeft[channel] * (1 - u) + bottomRight[channel] * u;
+							const base = top * (1 - v) + bottom * v;
+							image.data[index + channel] = Math.round(base * (1 - centerMix) + center[channel] * centerMix);
+						}
+						image.data[index + 3] = 255;
+					}
+				}
+				context.putImageData(image, 0, 0);
+				const texture = new THREE.CanvasTexture(textureCanvas);
+				texture.colorSpace = THREE.SRGBColorSpace;
+				texture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
+				return texture;
+			}
+
+			const topTexture = makeLogoTexture({ topLeft: '#fc29ef', topRight: '#feeab3', bottomLeft: '#df96fb', bottomRight: '#a4f5ec', center: '#f1c7c3' });
+			const leftTexture = makeLogoTexture({ topLeft: '#ffe8b9', topRight: '#fc69f1', bottomLeft: '#9d9aff', bottomRight: '#8cb9ff', center: '#ea98e6' });
+			const rightTexture = makeLogoTexture({ topLeft: '#ffe8bb', topRight: '#b0fac7', bottomLeft: '#a09dff', bottomRight: '#79dfff', center: '#ced9ea' });
+			const faceMaterial = (map: THREE.Texture) => new THREE.MeshBasicMaterial({ map, color: 0xffffff, toneMapped: false });
+
+			const logo = new THREE.Group();
+			const geometry = new THREE.BoxGeometry(2.05, 2.05, 2.05);
+			const materials = [
+				faceMaterial(rightTexture),
+				faceMaterial(leftTexture),
+				faceMaterial(topTexture),
+				faceMaterial(leftTexture),
+				faceMaterial(leftTexture),
+				faceMaterial(rightTexture),
+			];
+			materials.forEach((material) => {
+				material.transparent = true;
+				material.opacity = 0;
+				material.depthWrite = false;
+			});
+			const cube = new THREE.Mesh(geometry, materials);
+			cube.visible = false;
+			const edgeMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, transparent: true, opacity: 0 });
+			const edgeGeometry = new THREE.CylinderGeometry(0.025, 0.025, 1, 10);
+			const cornerGeometry = new THREE.SphereGeometry(0.027, 10, 8);
+			const edgeFrame = new THREE.Group();
+			const half = 1.025;
+			const corners = [
+				new THREE.Vector3(-half, -half, -half), new THREE.Vector3(half, -half, -half),
+				new THREE.Vector3(half, half, -half), new THREE.Vector3(-half, half, -half),
+				new THREE.Vector3(-half, -half, half), new THREE.Vector3(half, -half, half),
+				new THREE.Vector3(half, half, half), new THREE.Vector3(-half, half, half),
+			];
+			const edgePairs = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
+			const up = new THREE.Vector3(0, 1, 0);
+			edgePairs.forEach(([startIndex, endIndex]) => {
+				const start = corners[startIndex];
+				const end = corners[endIndex];
+				const direction = new THREE.Vector3().subVectors(end, start);
+				const edge = new THREE.Mesh(edgeGeometry, edgeMaterial);
+				edge.position.copy(start).add(end).multiplyScalar(0.5);
+				edge.scale.y = direction.length();
+				edge.quaternion.setFromUnitVectors(up, direction.normalize());
+				edgeFrame.add(edge);
+			});
+			corners.forEach((position) => {
+				const corner = new THREE.Mesh(cornerGeometry, edgeMaterial);
+				corner.position.copy(position);
+				edgeFrame.add(corner);
+			});
+			edgeFrame.visible = false;
+
+			const fragmentGeometry = new THREE.BoxGeometry(0.62, 0.62, 0.62);
+			const fragmentMaterials = materials.map((material) => {
+				const fragmentMaterial = material.clone();
+				fragmentMaterial.opacity = 1;
+				fragmentMaterial.depthWrite = true;
+				return fragmentMaterial;
+			});
+			const fragmentGroup = new THREE.Group();
+			const fragmentStep = 2.05 / 3;
+			let fragmentIndex = 0;
+			for (let gridX = -1; gridX <= 1; gridX += 1) {
+				for (let gridY = -1; gridY <= 1; gridY += 1) {
+					for (let gridZ = -1; gridZ <= 1; gridZ += 1) {
+						const targetPosition = new THREE.Vector3(gridX, gridY, gridZ).multiplyScalar(fragmentStep);
+						const seed = fragmentIndex + 1;
+						const scatter = new THREE.Vector3(
+							Math.sin(seed * 2.17),
+							Math.cos(seed * 1.31) * 0.78,
+							Math.sin(seed * 0.91 + 1.2),
+						).normalize().multiplyScalar(1.65 + (seed % 5) * 0.24);
+						const startPosition = targetPosition.clone().add(scatter);
+						const startRotation = new THREE.Euler(seed * 0.47, seed * 0.33, seed * 0.21);
+						const fragment = new THREE.Mesh(fragmentGeometry, fragmentMaterials);
+						fragment.position.copy(startPosition);
+						fragment.rotation.copy(startRotation);
+						fragment.scale.setScalar(0.45);
+						fragment.userData = { startPosition, targetPosition, startRotation };
+						fragmentGroup.add(fragment);
+						fragmentIndex += 1;
+					}
+				}
+			}
+
+			const effectGroup = new THREE.Group();
+			effectGroup.add(cube, edgeFrame, fragmentGroup);
+			logo.add(effectGroup);
+			const baseRotation = { x: -0.08, y: -0.08 };
+			logo.rotation.set(baseRotation.x, baseRotation.y, 0);
+			scene.add(logo);
+
+			const glow = new THREE.PointLight(0xaeeeff, 12, 14, 2);
+			glow.position.set(4, 4, 5);
+			const fill = new THREE.PointLight(0xf29adf, 7, 11, 2);
+			fill.position.set(-3, -1, 4);
+			scene.add(new THREE.HemisphereLight(0xd7efff, 0x24335e, 2.25), glow, fill);
+
+			let pointerX = 0;
+			let pointerY = 0;
+			let mouseFxEnabled = document.documentElement.dataset.mouseFx !== 'off';
+			let easedPointerX = 0;
+			let easedPointerY = 0;
+			let orbitAngle = 0;
+			let isHovering = false;
+			let hoverAmount = 0;
+			let pointerOrientationAmount = 0;
+			let pointerBounds = stage.getBoundingClientRect();
+			let pointerFollowVelocityX = 0;
+			let pointerFollowVelocityY = 0;
+			let dragRotationX = 0;
+			let dragRotationY = 0;
+			let targetDragRotationX = 0;
+			let targetDragRotationY = 0;
+			let isDragging = false;
+			let didDrag = false;
+			let draggedPointerId: number | null = null;
+			let dragStartClientX = 0;
+			let dragStartClientY = 0;
+			let dragStartRotationX = 0;
+			let dragStartRotationY = 0;
+			let cursorVelocityX = 0;
+			let cursorVelocityY = 0;
+			let lastClientX: number | null = null;
+			let lastClientY: number | null = null;
+			let lastPointerTime = 0;
+			const reactionTypes = ['spin', 'flip', 'bounce', 'pulse', 'wobble'] as const;
+			type ReactionType = typeof reactionTypes[number];
+			type ActiveReaction = {
+				type: ReactionType;
+				startedAt: number;
+				startPosition: THREE.Vector3;
+				startQuaternion: THREE.Quaternion;
+				startScale: THREE.Vector3;
+			};
+			let activeReaction: ActiveReaction | null = null;
+			let lastReactionIndex = -1;
+			let frame = 0;
+			const clock = new THREE.Clock();
+			const reactionDurations: Record<ReactionType, number> = { spin: 1.05, flip: 1.05, bounce: 0.9, pulse: 0.78, wobble: 1.2 };
+			const reactionPosition = new THREE.Vector3();
+			const reactionQuaternion = new THREE.Quaternion();
+			const reactionScale = new THREE.Vector3(1, 1, 1);
+			const reactionEuler = new THREE.Euler();
+			const reactionYAxis = new THREE.Vector3(0, 1, 0);
+			const reactionZAxis = new THREE.Vector3(0, 0, 1);
+
+			function playRandomReaction() {
+				if (clock.elapsedTime < 2) return;
+				let nextIndex = Math.floor(Math.random() * reactionTypes.length);
+				if (nextIndex === lastReactionIndex) nextIndex = (nextIndex + 1) % reactionTypes.length;
+				lastReactionIndex = nextIndex;
+				activeReaction = {
+					type: reactionTypes[nextIndex],
+					startedAt: clock.elapsedTime,
+					startPosition: effectGroup.position.clone(),
+					startQuaternion: effectGroup.quaternion.clone(),
+					startScale: effectGroup.scale.clone(),
+				};
+			}
+
+			function resize() {
+				pointerBounds = stage.getBoundingClientRect();
+				const { width, height } = pointerBounds;
+				if (width <= 0 || height <= 0) return;
+				const aspect = width / height;
+				const viewSize = 4.8;
+				const viewWidth = aspect >= 1 ? viewSize * aspect : viewSize;
+				const viewHeight = aspect >= 1 ? viewSize : viewSize / aspect;
+				renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+				renderer.setSize(width, height, false);
+				camera.left = -viewWidth / 2;
+				camera.right = viewWidth / 2;
+				camera.top = viewHeight / 2;
+				camera.bottom = -viewHeight / 2;
+				camera.updateProjectionMatrix();
+				renderer.render(scene, camera);
+			}
+
+			function render() {
+				const delta = Math.min(clock.getDelta(), 0.05);
+				const introProgress = Math.min(clock.elapsedTime / 2, 1);
+				const introEase = 1 - Math.pow(1 - introProgress, 3);
+				const finalBlend = Math.max(0, Math.min((introProgress - 0.82) / 0.18, 1));
+				if (introProgress < 1) {
+					fragmentGroup.children.forEach((child) => {
+						const fragment = child as THREE.Mesh;
+						const { startPosition, targetPosition, startRotation } = fragment.userData as { startPosition: THREE.Vector3; targetPosition: THREE.Vector3; startRotation: THREE.Euler };
+						fragment.position.lerpVectors(startPosition, targetPosition, introEase);
+						fragment.rotation.set(startRotation.x * (1 - introEase), startRotation.y * (1 - introEase), startRotation.z * (1 - introEase));
+						fragment.scale.setScalar(0.45 + introEase * 0.55);
+					});
+					fragmentMaterials.forEach((material) => { material.opacity = 1 - finalBlend; });
+					cube.visible = finalBlend > 0;
+					edgeFrame.visible = finalBlend > 0;
+					materials.forEach((material) => { material.opacity = finalBlend; });
+					edgeMaterial.opacity = finalBlend;
+				} else if (fragmentGroup.visible) {
+					fragmentGroup.visible = false;
+					cube.visible = true;
+					edgeFrame.visible = true;
+					orbitAngle = 0;
+					easedPointerX = 0;
+					easedPointerY = 0;
+					materials.forEach((material) => {
+						material.opacity = 1;
+						material.transparent = false;
+						material.depthWrite = true;
+						material.needsUpdate = true;
+					});
+					edgeMaterial.opacity = 1;
+				}
+				if (introProgress >= 1) {
+					const hoverBlend = 1 - Math.exp(-delta * 5.5);
+					const dragBlend = 1 - Math.exp(-delta * (isDragging ? 28 : 12));
+					const pointerSpring = 18;
+					const pointerDamping = Math.exp(-delta * 7);
+					hoverAmount += (((mouseFxEnabled && isHovering) ? 1 : 0) - hoverAmount) * hoverBlend;
+					pointerOrientationAmount += (((mouseFxEnabled && isHovering && !isDragging) ? 1 : 0) - pointerOrientationAmount) * (1 - Math.exp(-delta * 14));
+					orbitAngle += delta * THREE.MathUtils.lerp(0.23, 0.44, hoverAmount);
+					pointerFollowVelocityX += (pointerX - easedPointerX) * pointerSpring * delta;
+					pointerFollowVelocityY += (pointerY - easedPointerY) * pointerSpring * delta;
+					pointerFollowVelocityX *= pointerDamping;
+					pointerFollowVelocityY *= pointerDamping;
+					easedPointerX = THREE.MathUtils.clamp(easedPointerX + pointerFollowVelocityX * delta, -1.15, 1.15);
+					easedPointerY = THREE.MathUtils.clamp(easedPointerY + pointerFollowVelocityY * delta, -1.15, 1.15);
+					dragRotationX += (targetDragRotationX - dragRotationX) * dragBlend;
+					dragRotationY += (targetDragRotationY - dragRotationY) * dragBlend;
+				}
+				logo.rotation.y = baseRotation.y + orbitAngle + dragRotationY + easedPointerX * 1.16 * pointerOrientationAmount;
+				logo.rotation.x = baseRotation.x + dragRotationX + easedPointerY * 0.68 * pointerOrientationAmount;
+				logo.rotation.z = 0;
+				effectGroup.position.set(0, 0, 0);
+				effectGroup.quaternion.identity();
+				effectGroup.scale.setScalar(1);
+				if (activeReaction) {
+					const duration = reactionDurations[activeReaction.type];
+					const reactionAge = clock.elapsedTime - activeReaction.startedAt;
+					const progress = Math.min(reactionAge / duration, 1);
+					const eased = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+					const wave = Math.sin(Math.PI * progress);
+					reactionPosition.set(0, 0, 0);
+					reactionQuaternion.identity();
+					reactionScale.set(1, 1, 1);
+					switch (activeReaction.type) {
+						case 'spin':
+							reactionQuaternion.setFromAxisAngle(reactionYAxis, eased * Math.PI * 2);
+							break;
+						case 'flip':
+							reactionEuler.set(eased * Math.PI * 2, wave * 0.22, 0);
+							reactionQuaternion.setFromEuler(reactionEuler);
+							break;
+						case 'bounce':
+							reactionPosition.y = wave * 0.72;
+							reactionQuaternion.setFromAxisAngle(reactionZAxis, Math.sin(progress * Math.PI * 2) * 0.16);
+							reactionScale.set(1 + wave * 0.06, 1 - wave * 0.08, 1 + wave * 0.06);
+							break;
+						case 'pulse':
+							reactionScale.setScalar(1 + wave * 0.3);
+							reactionQuaternion.setFromAxisAngle(reactionYAxis, wave * 0.28);
+							break;
+						case 'wobble': {
+							const decay = 1 - progress;
+							reactionEuler.set(Math.cos(progress * Math.PI * 7) * 0.17 * decay, 0, Math.sin(progress * Math.PI * 9) * 0.3 * decay);
+							reactionQuaternion.setFromEuler(reactionEuler);
+							break;
+						}
+					}
+					const handoffProgress = Math.min(reactionAge / 0.12, 1);
+					const handoffEase = 1 - Math.pow(1 - handoffProgress, 3);
+					effectGroup.position.lerpVectors(activeReaction.startPosition, reactionPosition, handoffEase);
+					effectGroup.quaternion.slerpQuaternions(activeReaction.startQuaternion, reactionQuaternion, handoffEase);
+					effectGroup.scale.lerpVectors(activeReaction.startScale, reactionScale, handoffEase);
+					if (progress >= 1) activeReaction = null;
+				}
+				renderer.render(scene, camera);
+				frame = requestAnimationFrame(render);
+			}
+
+			function trackPointerVelocity(event: PointerEvent) {
+				if (event.pointerType === 'touch') return;
+				if (!mouseFxEnabled) return;
+				if (lastClientX !== null && lastClientY !== null && lastPointerTime > 0) {
+					const elapsedSinceMove = Math.max((event.timeStamp - lastPointerTime) / 1000, 0);
+					if (elapsedSinceMove > 0.12) {
+						cursorVelocityX = 0;
+						cursorVelocityY = 0;
+					} else {
+						const elapsed = THREE.MathUtils.clamp(elapsedSinceMove, 1 / 240, 0.08);
+						const instantVelocityX = ((event.clientX - lastClientX) / Math.max(pointerBounds.width, 1)) / elapsed;
+						const instantVelocityY = ((event.clientY - lastClientY) / Math.max(pointerBounds.height, 1)) / elapsed;
+						const velocityBlend = 1 - Math.exp(-elapsed * 18);
+						cursorVelocityX += (instantVelocityX - cursorVelocityX) * velocityBlend;
+						cursorVelocityY += (instantVelocityY - cursorVelocityY) * velocityBlend;
+					}
+				}
+				lastClientX = event.clientX;
+				lastClientY = event.clientY;
+				lastPointerTime = event.timeStamp;
+			}
+
+			window.addEventListener('pointermove', trackPointerVelocity, { passive: true });
+			const updatePointerOrientation = (event: PointerEvent) => {
+				pointerX = THREE.MathUtils.clamp(((event.clientX - pointerBounds.left) / pointerBounds.width - 0.5) * 2, -1, 1);
+				pointerY = THREE.MathUtils.clamp(((event.clientY - pointerBounds.top) / pointerBounds.height - 0.5) * 2, -1, 1);
+			};
+			stage.addEventListener('pointermove', (event) => {
+				if (event.pointerType === 'touch') return;
+				if (mouseFxEnabled && !isDragging) updatePointerOrientation(event);
+				if (!isDragging || event.pointerId !== draggedPointerId) return;
+				const dragX = (event.clientX - dragStartClientX) / Math.max(pointerBounds.width, 1);
+				const dragY = (event.clientY - dragStartClientY) / Math.max(pointerBounds.height, 1);
+				if (Math.hypot(event.clientX - dragStartClientX, event.clientY - dragStartClientY) > 5) didDrag = true;
+				targetDragRotationY = dragStartRotationY + dragX * Math.PI * 1.45;
+				targetDragRotationX = THREE.MathUtils.clamp(dragStartRotationX + dragY * Math.PI * 0.9, -0.9, 0.9);
+			});
+			stage.addEventListener('pointerenter', (event) => {
+				isHovering = mouseFxEnabled;
+				if (!mouseFxEnabled) return;
+				updatePointerOrientation(event);
+				if (clock.elapsedTime < 2) return;
+				const velocityAge = lastPointerTime > 0 ? Math.max((event.timeStamp - lastPointerTime) / 1000, 0) : 1;
+				const recentVelocity = Math.exp(-velocityAge * 18);
+				pointerFollowVelocityX = THREE.MathUtils.clamp(pointerFollowVelocityX + cursorVelocityX * 0.28 * recentVelocity, -2.4, 2.4);
+				pointerFollowVelocityY = THREE.MathUtils.clamp(pointerFollowVelocityY + cursorVelocityY * 0.22 * recentVelocity, -1.8, 1.8);
+			});
+			stage.addEventListener('pointerleave', () => {
+				if (isDragging) return;
+				isHovering = false;
+				pointerX = 0;
+				pointerY = 0;
+			});
+			stage.addEventListener('pointerdown', (event) => {
+				if (event.pointerType === 'touch' || event.button !== 0) return;
+				isDragging = true;
+				didDrag = false;
+				draggedPointerId = event.pointerId;
+				dragStartClientX = event.clientX;
+				dragStartClientY = event.clientY;
+				dragStartRotationX = targetDragRotationX;
+				dragStartRotationY = targetDragRotationY;
+				stage.setPointerCapture(event.pointerId);
+				stage.classList.add('is-dragging');
+			});
+			const finishDrag = (event: PointerEvent) => {
+				if (!isDragging || event.pointerId !== draggedPointerId) return;
+				if (stage.hasPointerCapture(event.pointerId)) stage.releasePointerCapture(event.pointerId);
+				isDragging = false;
+				draggedPointerId = null;
+				stage.classList.remove('is-dragging');
+				isHovering = mouseFxEnabled && stage.matches(':hover');
+				if (isHovering) updatePointerOrientation(event);
+				if (!isHovering) {
+					pointerX = 0;
+					pointerY = 0;
+				}
+			};
+			stage.addEventListener('pointerup', finishDrag);
+			stage.addEventListener('pointercancel', finishDrag);
+			window.addEventListener('openengine:mouse-fx-change', (event) => {
+				const detail = (event as CustomEvent<{ enabled?: boolean }>).detail;
+				mouseFxEnabled = detail?.enabled !== false;
+				if (mouseFxEnabled) return;
+				isHovering = false;
+				pointerX = 0;
+				pointerY = 0;
+				pointerOrientationAmount = 0;
+				easedPointerX = 0;
+				easedPointerY = 0;
+				pointerFollowVelocityX = 0;
+				pointerFollowVelocityY = 0;
+				cursorVelocityX = 0;
+				cursorVelocityY = 0;
+			});
+			stage.addEventListener('click', (event) => {
+				if (didDrag) {
+					event.preventDefault();
+					event.stopPropagation();
+					didDrag = false;
+					return;
+				}
+				playRandomReaction();
+			});
+			stage.addEventListener('keydown', (event) => {
+				if (event.key !== 'Enter' && event.key !== ' ') return;
+				event.preventDefault();
+				playRandomReaction();
+			});
+			const resizeObserver = new ResizeObserver(resize);
+			resizeObserver.observe(stage);
+			window.addEventListener('resize', resize);
+			resize();
+			requestAnimationFrame(resize);
+			document.fonts.ready.then(resize);
+			render();
+			window.addEventListener('pagehide', () => {
+				cancelAnimationFrame(frame);
+				window.removeEventListener('pointermove', trackPointerVelocity);
+				resizeObserver.disconnect();
+				geometry.dispose();
+				materials.forEach((material) => material.dispose());
+				[topTexture, leftTexture, rightTexture].forEach((texture) => texture.dispose());
+				edgeGeometry.dispose();
+				cornerGeometry.dispose();
+				edgeMaterial.dispose();
+				fragmentGeometry.dispose();
+				fragmentMaterials.forEach((material) => material.dispose());
+				renderer.dispose();
+			}, { once: true });
+		}
+	</script>
+</Layout>
+
+<style>
+	@keyframes openengine-cube-hue-cycle { from { filter: hue-rotate(0deg) saturate(1); } to { filter: hue-rotate(-360deg) saturate(1); } }
+	@keyframes home-gradient-ping-pong { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+	.home-page { --page-pad-left: max(clamp(14px, 4.5vw, 80px), env(safe-area-inset-left, 0px)); --page-pad-right: max(clamp(14px, 4.5vw, 80px), env(safe-area-inset-right, 0px)); --home-hero-row-gap: clamp(32px, 6vw, 104px); --home-cube-stage-height: min(56vw, 700px); --engine-principles-padding-top: calc(clamp(48px, 6vw, 88px) + 1px); min-height: 100dvh; position: relative; isolation: isolate; display: flex; flex-direction: column; padding: 0 var(--page-pad-right) max(clamp(28px, 6vw, 48px), env(safe-area-inset-bottom, 0px)) var(--page-pad-left); overflow-x: clip; background: radial-gradient(circle at 18% 46%, rgba(105, 44, 165, .15), transparent 38rem), linear-gradient(118deg, #100617 0%, #06020a 38%, #010102 66%, #000 100%); }
+	.home-page::before { content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0; background: radial-gradient(circle at 22% 44%, rgba(35, 72, 155, .17), transparent 39rem), linear-gradient(118deg, #050d1e 0%, #020611 40%, #010205 70%, #000 100%); animation: home-gradient-ping-pong 16s ease-in-out infinite; }
+	.home-page > :global(:not(.constellation-canvas)) { position: relative; z-index: 1; }
+	.home-hero { width: min(90vw, 1800px); flex: 1; display: grid; grid-template-columns: minmax(0, .94fr) minmax(340px, 1.06fr); grid-template-rows: 1fr auto; align-items: center; column-gap: clamp(32px, 6vw, 104px); row-gap: var(--home-hero-row-gap); margin: 0 auto; padding: clamp(38px, 7vh, 104px) 0 clamp(32px, 5vh, 72px); }
+	.home-copy { max-width: 680px; transform: translate(120px, 52px); }
+	.eyebrow { margin: 0 0 18px; color: var(--accent-c); font: 600 11px/1.3 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
+	.home-copy h1 { margin: 0; font-family: 'Roboto', Inter, ui-sans-serif, sans-serif; font-weight: 300; line-height: .98; letter-spacing: .055em; text-transform: uppercase; }
+	.home-copy h1 { font-size: clamp(48px, 7.1vw, 118px); }
+	.intro { max-width: 580px; margin: clamp(22px, 3vw, 34px) 0 0; color: #cbc9d5; font-size: clamp(18px, 1.7vw, 25px); font-weight: 300; line-height: 1.55; }
+	.hero-links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: clamp(28px, 3.6vw, 46px); }
+	.hero-links a { display: inline-flex; gap: 9px; align-items: center; padding: 11px 14px; border: 1px solid rgba(110,231,255,.3); background: rgba(5,10,17,.72); color: #effdff; font: 600 12px/1 var(--font-mono); letter-spacing: .055em; text-decoration: none; text-transform: uppercase; transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease; }
+	.hero-links a:hover { transform: translateY(-1px); border-color: rgba(110,231,255,.9); background: rgba(17,46,61,.66); box-shadow: 0 0 0 1px rgba(110,231,255,.42), 0 0 40px rgba(110,231,255,.22), 0 0 84px rgba(110,231,255,.12); }
+	.cube-stage { position: relative; height: var(--home-cube-stage-height); min-height: 0; display: grid; place-items: center; isolation: isolate; transform: translateY(32px); cursor: grab; touch-action: pan-y; }
+	.cube-stage:focus-visible { outline: 1px solid rgba(110,231,255,.7); outline-offset: 8px; }
+	.cube-stage::before { content: ''; position: absolute; z-index: -1; width: 72%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(102,218,255,.12), rgba(154,117,255,.055) 42%, transparent 70%); filter: blur(10px); transition: transform .35s ease, filter .35s ease, opacity .35s ease; }
+	.cube-stage:hover::before { transform: scale(1.08); filter: blur(16px); opacity: 1.8; }
+	.cube-canvas { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; outline: none; cursor: inherit; animation: openengine-cube-hue-cycle 22s linear 2s infinite; will-change: filter; }
+	.cube-stage.is-dragging, .cube-stage.is-dragging .cube-canvas { cursor: grabbing; }
+	.home-editor-preview { width: min(90vw, 1800px); margin: 0 auto clamp(54px, 7vw, 104px); }
+	.home-editor-preview a { position: relative; display: block; color: #effdff; text-decoration: none; }
+	.home-editor-preview img { display: block; width: 100%; height: auto; background: #090a0d; box-shadow: 0 32px 100px rgba(0,0,0,.46); transition: transform .35s ease, filter .35s ease, box-shadow .35s ease; }
+	.home-editor-preview figcaption { position: absolute; right: clamp(12px, 2vw, 28px); bottom: clamp(12px, 2vw, 28px); display: inline-flex; gap: 9px; align-items: center; padding: 11px 14px; border-radius: 999px; background: rgba(3,6,10,.86); color: #f5fcff; font: 600 11px/1 var(--font-mono); letter-spacing: .07em; text-transform: uppercase; backdrop-filter: blur(12px); transition: background .25s ease, color .25s ease; }
+	.home-editor-preview a:hover img { transform: translateY(-3px) scale(1.002); filter: brightness(1.05); box-shadow: 0 36px 110px rgba(0,0,0,.5), 0 0 70px rgba(110,231,255,.08); }
+	.home-editor-preview a:hover figcaption { background: #edfaff; color: #071014; }
+	.engine-principles { width: min(90vw, 1800px); margin: 0 auto clamp(64px, 8vw, 120px); padding-top: var(--engine-principles-padding-top); }
+	.principles-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
+	.principles-grid li { min-height: 260px; padding: clamp(22px, 2.3vw, 34px); border: 1px solid rgba(159,177,205,.2); background: linear-gradient(145deg, rgba(28,25,38,.82), rgba(8,10,16,.9)); transition: transform .25s ease, border-color .4s ease, background .4s ease, box-shadow .4s ease; }
+	.principles-grid li:nth-child(3n + 2) { background: linear-gradient(145deg, rgba(19,31,43,.84), rgba(8,10,16,.9)); }
+	.principles-grid li:nth-child(3n) { background: linear-gradient(145deg, rgba(24,27,48,.84), rgba(8,10,16,.9)); }
+	.principles-grid li:hover { transform: translateY(-3px) scale(1.008); border-color: rgba(110,231,255,.58); box-shadow: 0 0 42px rgba(110,231,255,.1); }
+	.principles-grid span { display: block; margin-bottom: 30px; color: var(--accent-c); font: 600 11px/1.2 var(--font-mono); letter-spacing: .11em; text-transform: uppercase; }
+	.principles-grid h3 { margin: 0 0 15px; color: #f3f1f8; font-size: clamp(19px, 1.55vw, 24px); font-weight: 500; line-height: 1.2; }
+	.principles-grid p { margin: 0; color: #c8c5d1; font-size: 16px; font-weight: 300; line-height: 1.6; }
+	.foot { width: min(90vw, 1800px); margin: 0 auto; padding-top: 24px; border-top: 1px solid rgba(255,255,255,.08); text-align: center; color: var(--muted); font-size: 13px; }
+	.foot a { color: inherit; text-decoration-color: rgba(182,178,191,.24); text-underline-offset: 3px; }
+	@media (max-width: 1180px) { .principles-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .principles-grid li { min-height: 230px; } }
+	@media (max-width: 840px) { .home-hero { grid-template-columns: 1fr; grid-template-rows: auto auto; align-content: start; gap: 16px; padding-top: 24px; } .home-copy { text-align: center; margin: 0 auto; transform: none; } .intro { margin-inline: auto; } .hero-links { justify-content: center; } .cube-stage { height: min(76vw, 360px); order: -1; transform: none; } }
+	@media (max-width: 560px) { .home-hero { width: 100%; gap: 8px; padding: 8px 0 14px; } .home-copy h1 { font-size: clamp(38px, 10.7vw, 46px); letter-spacing: .035em; } .eyebrow { margin-bottom: 8px; font-size: 9px; } .intro { margin-top: 12px; font-size: 14.5px; line-height: 1.42; } .hero-links { margin-top: 14px; gap: 8px; } .hero-links a { padding: 9px 10px; font-size: 9px; } .cube-stage { height: min(50vw, 220px); } .home-editor-preview { width: 100%; margin-bottom: 46px; } .home-editor-preview figcaption { right: 8px; bottom: 8px; padding: 8px 10px; font-size: 8px; } .engine-principles { width: 100%; margin-bottom: 56px; padding-top: 41px; } .principles-grid { grid-template-columns: 1fr; gap: 10px; } .principles-grid li { min-height: 0; padding: 24px 20px 28px; } .principles-grid span { margin-bottom: 20px; font-size: 10px; } .principles-grid p { font-size: 15px; } .foot { width: 100%; margin-top: 2px; padding-top: 12px; font-size: 10px; } }
+	@media (orientation: landscape) and (max-width: 940px) and (max-height: 560px) {
+		.home-page { padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
+		.home-hero { width: 100%; grid-template-columns: minmax(250px, .94fr) minmax(280px, 1.06fr); grid-template-rows: 1fr; align-items: center; align-content: center; gap: clamp(10px, 2.6vw, 24px); padding: 4px 0 8px; }
+		.home-copy { order: 0; align-self: center; margin: 0; text-align: left; transform: none; }
+		.home-copy h1 { font-size: clamp(42px, 7.8vw, 64px); line-height: .92; }
+		.eyebrow { margin-bottom: 8px; font-size: 8px; }
+		.intro { max-width: 430px; margin: 12px 0 0; font-size: clamp(12px, 1.9vw, 15px); line-height: 1.4; }
+		.hero-links { justify-content: flex-start; gap: 8px; margin-top: 14px; }
+		.hero-links a { padding: 8px 9px; font-size: 8px; }
+		.cube-stage { order: 0; height: min(68vh, 320px); transform: translateY(4px); }
+		.foot { display: none; }
+	}
+	@media (prefers-reduced-motion: reduce) { .home-page::before { animation: none; opacity: .38; } }
+</style>

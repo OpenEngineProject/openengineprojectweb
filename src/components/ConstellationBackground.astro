@@ -1,0 +1,394 @@
+<canvas class="constellation-canvas" data-constellation-background aria-hidden="true"></canvas>
+
+<script>
+	import * as THREE from 'three';
+
+	const canvases = document.querySelectorAll<HTMLCanvasElement>('[data-constellation-background]');
+
+	canvases.forEach((canvas) => {
+		const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+		renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+
+		const scene = new THREE.Scene();
+		const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10);
+		camera.position.z = 1;
+
+		const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		const starCount = window.innerWidth < 720 ? 26 : 46;
+		const driftSpeed = reducedMotion ? 0.018 : 0.05;
+		const starPositions = new Float32Array(starCount * 3);
+		const starDisplayPositions = new Float32Array(starCount * 3);
+		const starVelocity = new Float32Array(starCount * 2);
+		const starGeometry = new THREE.BufferGeometry();
+		const starMaterial = new THREE.PointsMaterial({
+			color: 0x9eeeff,
+			size: 2.3,
+			transparent: true,
+			opacity: 0.6,
+			sizeAttenuation: false,
+		});
+
+		let viewportWidth = 1;
+		let viewportHeight = 1;
+		let scrollParallax = window.scrollY * 0.03;
+		let pointerActive = false;
+		let pointerX = 0;
+		let pointerY = 0;
+		let mouseFxEnabled = document.documentElement.dataset.mouseFx !== 'off';
+		const protectedSelector = [
+			'a', 'button', 'input', 'select', 'textarea', 'summary', 'article',
+			'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'small', 'strong',
+			'em', 'label', 'li', 'dt', 'dd', 'th', 'td', 'blockquote', 'code', 'pre',
+			'[class*="-card"]', '[role="button"]', '[role="link"]', '[contenteditable="true"]',
+		].join(', ');
+		const protectedPadding = 44;
+		let protectedBounds: DOMRect[] = [];
+		type ClearBounds = { left: number; right: number; top: number; bottom: number };
+		let constellationClearBounds: ClearBounds[] = [];
+
+		function refreshProtectedBounds() {
+			protectedBounds = Array.from(document.querySelectorAll<HTMLElement>(protectedSelector))
+				.map((element) => element.getBoundingClientRect())
+				.filter((bounds) => bounds.width > 0 && bounds.height > 0);
+			constellationClearBounds = Array.from(document.querySelectorAll<HTMLElement>('[data-constellation-clear]'))
+				.map((element) => {
+					const bounds = element.getBoundingClientRect();
+					const padding = Number.parseFloat(element.dataset.constellationClear || '') || 40;
+					return {
+						left: bounds.left - padding,
+						right: bounds.right + padding,
+						top: bounds.top - padding,
+						bottom: bounds.bottom + padding,
+					};
+				})
+				.filter((bounds) => bounds.right > bounds.left && bounds.bottom > bounds.top);
+		}
+
+		function pointInClearBounds(clientX: number, clientY: number) {
+			return constellationClearBounds.some((bounds) => clientX >= bounds.left
+				&& clientX <= bounds.right
+				&& clientY >= bounds.top
+				&& clientY <= bounds.bottom);
+		}
+
+		function segmentsIntersect(
+			x1: number, y1: number, x2: number, y2: number,
+			x3: number, y3: number, x4: number, y4: number,
+		) {
+			const denominator = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+			if (Math.abs(denominator) < 0.0001) return false;
+			const first = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denominator;
+			const second = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denominator;
+			return first >= 0 && first <= 1 && second >= 0 && second <= 1;
+		}
+
+		function lineCrossesClearBounds(worldX1: number, worldY1: number, worldX2: number, worldY2: number) {
+			const x1 = worldX1 + viewportWidth / 2;
+			const y1 = viewportHeight / 2 - worldY1 - scrollParallax;
+			const x2 = worldX2 + viewportWidth / 2;
+			const y2 = viewportHeight / 2 - worldY2 - scrollParallax;
+			return constellationClearBounds.some((bounds) => {
+				if (pointInBounds(x1, y1, bounds) || pointInBounds(x2, y2, bounds)) return true;
+				return segmentsIntersect(x1, y1, x2, y2, bounds.left, bounds.top, bounds.right, bounds.top)
+					|| segmentsIntersect(x1, y1, x2, y2, bounds.right, bounds.top, bounds.right, bounds.bottom)
+					|| segmentsIntersect(x1, y1, x2, y2, bounds.right, bounds.bottom, bounds.left, bounds.bottom)
+					|| segmentsIntersect(x1, y1, x2, y2, bounds.left, bounds.bottom, bounds.left, bounds.top);
+			});
+		}
+
+		function pointInBounds(clientX: number, clientY: number, bounds: ClearBounds) {
+			return clientX >= bounds.left && clientX <= bounds.right && clientY >= bounds.top && clientY <= bounds.bottom;
+		}
+
+		function isNearProtectedSurface(clientX: number, clientY: number, target: EventTarget | null) {
+			if (target instanceof Element && target.closest(protectedSelector)) return true;
+			return protectedBounds.some((bounds) => clientX >= bounds.left - protectedPadding
+				&& clientX <= bounds.right + protectedPadding
+				&& clientY >= bounds.top - protectedPadding
+				&& clientY <= bounds.bottom + protectedPadding);
+		}
+
+		for (let index = 0; index < starCount; index += 1) {
+			const positionIndex = index * 3;
+			starPositions[positionIndex] = (Math.random() - 0.5) * window.innerWidth;
+			starPositions[positionIndex + 1] = (Math.random() - 0.5) * window.innerHeight;
+			starVelocity[index * 2] = (Math.random() - 0.5) * driftSpeed;
+			starVelocity[index * 2 + 1] = (Math.random() - 0.5) * driftSpeed;
+		}
+
+		starDisplayPositions.set(starPositions);
+		starGeometry.setAttribute('position', new THREE.BufferAttribute(starDisplayPositions, 3));
+		scene.add(new THREE.Points(starGeometry, starMaterial));
+
+		const maxConnections = starCount * 3;
+		const linePositions = new Float32Array(maxConnections * 6);
+		const lineGeometry = new THREE.BufferGeometry();
+		lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+		lineGeometry.setDrawRange(0, 0);
+		const lineMaterial = new THREE.LineBasicMaterial({
+			color: 0x63c8ff,
+			transparent: true,
+			opacity: 0.2,
+		});
+		scene.add(new THREE.LineSegments(lineGeometry, lineMaterial));
+
+		const cursorLinePositions = new Float32Array(6);
+		const cursorLineGeometry = new THREE.BufferGeometry();
+		cursorLineGeometry.setAttribute('position', new THREE.BufferAttribute(cursorLinePositions, 3));
+		cursorLineGeometry.setDrawRange(0, 0);
+		const cursorLineMaterial = new THREE.LineBasicMaterial({
+			color: 0xa6edff,
+			transparent: true,
+			opacity: 0.52,
+		});
+		scene.add(new THREE.LineSegments(cursorLineGeometry, cursorLineMaterial));
+
+		type PlacedStar = { id: number; x: number; y: number; velocityX: number; velocityY: number; anchorIndex: number; anchorPlacedId: number | null };
+		const maxPlacedStars = window.innerWidth < 720 ? 18 : 32;
+		const placedStars: PlacedStar[] = [];
+		let nextPlacedStarId = 1;
+		const placedStarPositions = new Float32Array(maxPlacedStars * 3);
+		const placedStarGeometry = new THREE.BufferGeometry();
+		placedStarGeometry.setAttribute('position', new THREE.BufferAttribute(placedStarPositions, 3));
+		placedStarGeometry.setDrawRange(0, 0);
+		const placedStarMaterial = new THREE.PointsMaterial({
+			color: 0xd7f7ff,
+			size: 3.2,
+			transparent: true,
+			opacity: 0.92,
+			sizeAttenuation: false,
+		});
+		scene.add(new THREE.Points(placedStarGeometry, placedStarMaterial));
+
+		const placedLinePositions = new Float32Array(maxPlacedStars * 6);
+		const placedLineGeometry = new THREE.BufferGeometry();
+		placedLineGeometry.setAttribute('position', new THREE.BufferAttribute(placedLinePositions, 3));
+		placedLineGeometry.setDrawRange(0, 0);
+		const placedLineMaterial = new THREE.LineBasicMaterial({
+			color: 0x7cdfff,
+			transparent: true,
+			opacity: 0.46,
+		});
+		scene.add(new THREE.LineSegments(placedLineGeometry, placedLineMaterial));
+
+		function resize() {
+			viewportWidth = window.innerWidth;
+			viewportHeight = window.innerHeight;
+			renderer.setSize(viewportWidth, viewportHeight, false);
+			camera.left = -viewportWidth / 2;
+			camera.right = viewportWidth / 2;
+			camera.top = viewportHeight / 2;
+			camera.bottom = -viewportHeight / 2;
+			camera.updateProjectionMatrix();
+			refreshProtectedBounds();
+		}
+
+		function draw() {
+			let connectionCount = 0;
+			camera.position.y = -scrollParallax;
+			const connectionDistance = Math.max(100, Math.min(viewportWidth, viewportHeight) * 0.16);
+			const connectionDistanceSquared = connectionDistance * connectionDistance;
+
+			for (let index = 0; index < starCount; index += 1) {
+				const positionIndex = index * 3;
+				starPositions[positionIndex] += starVelocity[index * 2];
+				starPositions[positionIndex + 1] += starVelocity[index * 2 + 1];
+
+				if (Math.abs(starPositions[positionIndex]) > viewportWidth / 2) starVelocity[index * 2] *= -1;
+				if (Math.abs(starPositions[positionIndex + 1]) > viewportHeight / 2) starVelocity[index * 2 + 1] *= -1;
+
+				const clientX = starPositions[positionIndex] + viewportWidth / 2;
+				const clientY = viewportHeight / 2 - starPositions[positionIndex + 1] - scrollParallax;
+				const hiddenByClearZone = pointInClearBounds(clientX, clientY);
+				starDisplayPositions[positionIndex] = hiddenByClearZone ? viewportWidth * 2 : starPositions[positionIndex];
+				starDisplayPositions[positionIndex + 1] = hiddenByClearZone ? viewportHeight * 2 : starPositions[positionIndex + 1];
+				starDisplayPositions[positionIndex + 2] = 0;
+
+				for (let nextIndex = index + 1; nextIndex < starCount && connectionCount < maxConnections; nextIndex += 1) {
+					const nextPositionIndex = nextIndex * 3;
+					const dx = starPositions[positionIndex] - starPositions[nextPositionIndex];
+					const dy = starPositions[positionIndex + 1] - starPositions[nextPositionIndex + 1];
+					if (dx * dx + dy * dy > connectionDistanceSquared) continue;
+					if (lineCrossesClearBounds(
+						starPositions[positionIndex], starPositions[positionIndex + 1],
+						starPositions[nextPositionIndex], starPositions[nextPositionIndex + 1],
+					)) continue;
+
+					const lineIndex = connectionCount * 6;
+					linePositions[lineIndex] = starPositions[positionIndex];
+					linePositions[lineIndex + 1] = starPositions[positionIndex + 1];
+					linePositions[lineIndex + 3] = starPositions[nextPositionIndex];
+					linePositions[lineIndex + 4] = starPositions[nextPositionIndex + 1];
+					connectionCount += 1;
+				}
+			}
+
+			starGeometry.attributes.position.needsUpdate = true;
+			lineGeometry.attributes.position.needsUpdate = true;
+			lineGeometry.setDrawRange(0, connectionCount * 2);
+
+			let placedStarCount = 0;
+			let placedLineCount = 0;
+			for (const star of mouseFxEnabled ? placedStars : []) {
+				star.x += star.velocityX;
+				star.y += star.velocityY;
+				const positionIndex = placedStarCount * 3;
+				placedStarPositions[positionIndex] = star.x;
+				placedStarPositions[positionIndex + 1] = star.y;
+				placedStarCount += 1;
+
+				const anchorLineIndex = placedLineCount * 6;
+				placedLinePositions[anchorLineIndex] = star.x;
+				placedLinePositions[anchorLineIndex + 1] = star.y;
+				const placedAnchor = star.anchorPlacedId === null ? undefined : placedStars.find((candidate) => candidate.id === star.anchorPlacedId);
+				if (placedAnchor) {
+					placedLinePositions[anchorLineIndex + 3] = placedAnchor.x;
+					placedLinePositions[anchorLineIndex + 4] = placedAnchor.y;
+				} else {
+					const anchorPositionIndex = star.anchorIndex * 3;
+					placedLinePositions[anchorLineIndex + 3] = starPositions[anchorPositionIndex];
+					placedLinePositions[anchorLineIndex + 4] = starPositions[anchorPositionIndex + 1];
+				}
+				placedLineCount += 1;
+			}
+			placedStarGeometry.attributes.position.needsUpdate = true;
+			placedStarGeometry.setDrawRange(0, placedStarCount);
+			placedLineGeometry.attributes.position.needsUpdate = true;
+			placedLineGeometry.setDrawRange(0, placedLineCount * 2);
+
+			if (mouseFxEnabled && pointerActive) {
+				const cursorWorldX = pointerX - viewportWidth / 2;
+				const cursorWorldY = viewportHeight / 2 - pointerY - scrollParallax;
+				let nearestIndex = 0;
+				let nearestDistance = Infinity;
+
+				for (let index = 0; index < starCount; index += 1) {
+					const positionIndex = index * 3;
+					const dx = starPositions[positionIndex] - cursorWorldX;
+					const dy = starPositions[positionIndex + 1] - cursorWorldY;
+					const distance = dx * dx + dy * dy;
+					if (distance < nearestDistance) {
+						nearestDistance = distance;
+						nearestIndex = positionIndex;
+					}
+				}
+
+				cursorLinePositions[0] = starPositions[nearestIndex];
+				cursorLinePositions[1] = starPositions[nearestIndex + 1];
+				cursorLinePositions[3] = cursorWorldX;
+				cursorLinePositions[4] = cursorWorldY;
+				cursorLineGeometry.attributes.position.needsUpdate = true;
+				cursorLineGeometry.setDrawRange(0, 2);
+			} else {
+				cursorLineGeometry.setDrawRange(0, 0);
+			}
+			renderer.render(scene, camera);
+		}
+
+		let animationFrame = 0;
+		function animate() {
+			if (document.hidden) return;
+			draw();
+			animationFrame = window.requestAnimationFrame(animate);
+		}
+
+		window.addEventListener('resize', resize, { passive: true });
+		window.addEventListener('scroll', () => {
+			scrollParallax = window.scrollY * 0.03;
+			refreshProtectedBounds();
+		}, { passive: true });
+		window.addEventListener('pointermove', (event) => {
+			if (event.pointerType === 'touch') return;
+			if (!mouseFxEnabled) {
+				pointerActive = false;
+				return;
+			}
+			if (isNearProtectedSurface(event.clientX, event.clientY, event.target)) {
+				pointerActive = false;
+				return;
+			}
+			pointerActive = true;
+			pointerX = event.clientX;
+			pointerY = event.clientY;
+		}, { passive: true });
+		window.addEventListener('click', (event) => {
+			if (!mouseFxEnabled) return;
+			if (!(event instanceof MouseEvent) || event.button !== 0 || event.defaultPrevented) return;
+			const target = event.target;
+			if (!(target instanceof Element)) return;
+			if (isNearProtectedSurface(event.clientX, event.clientY, target)) return;
+
+			const centerX = event.clientX - viewportWidth / 2;
+			const centerY = viewportHeight / 2 - event.clientY - scrollParallax;
+			let anchorIndex = 0;
+			let anchorDistance = Infinity;
+			let anchorPlacedId: number | null = null;
+			for (let index = 0; index < starCount; index += 1) {
+				const positionIndex = index * 3;
+				const dx = starPositions[positionIndex] - centerX;
+				const dy = starPositions[positionIndex + 1] - centerY;
+				const distance = dx * dx + dy * dy;
+				if (distance < anchorDistance) {
+					anchorDistance = distance;
+					anchorIndex = index;
+				}
+			}
+			for (const star of placedStars) {
+				const dx = star.x - centerX;
+				const dy = star.y - centerY;
+				const distance = dx * dx + dy * dy;
+				if (distance < anchorDistance) {
+					anchorDistance = distance;
+					anchorPlacedId = star.id;
+				}
+			}
+			const lastPlacedStar = placedStars[placedStars.length - 1];
+			if (lastPlacedStar) {
+				const dx = lastPlacedStar.x - centerX;
+				const dy = lastPlacedStar.y - centerY;
+				if (dx * dx + dy * dy <= 190 * 190) anchorPlacedId = lastPlacedStar.id;
+			}
+
+			placedStars.push({
+				id: nextPlacedStarId,
+				x: centerX,
+				y: centerY,
+				velocityX: (Math.random() - 0.5) * driftSpeed * 0.7,
+				velocityY: (Math.random() - 0.5) * driftSpeed * 0.7,
+				anchorIndex,
+				anchorPlacedId,
+			});
+			nextPlacedStarId += 1;
+			if (placedStars.length > maxPlacedStars) placedStars.shift();
+		});
+		document.addEventListener('pointerout', (event) => {
+			if (!event.relatedTarget) pointerActive = false;
+		});
+		window.addEventListener('blur', () => { pointerActive = false; });
+		window.addEventListener('openengine:mouse-fx-change', (event) => {
+			const detail = (event as CustomEvent<{ enabled?: boolean }>).detail;
+			mouseFxEnabled = detail?.enabled !== false;
+			if (!mouseFxEnabled) pointerActive = false;
+		});
+		document.addEventListener('visibilitychange', () => {
+			if (document.hidden) window.cancelAnimationFrame(animationFrame);
+			else animate();
+		});
+
+		resize();
+		draw();
+		animate();
+	});
+</script>
+
+<style>
+	.constellation-canvas {
+		position: fixed;
+		inset: 0;
+		z-index: 0;
+		width: 100%;
+		height: 100%;
+		pointer-events: none;
+		opacity: 0.72;
+	}
+</style>

@@ -1,0 +1,70 @@
+---
+interface Props {
+	pushToBottom?: boolean;
+}
+
+const { pushToBottom = false } = Astro.props;
+---
+
+<footer class:list={['openengine-footer', { 'openengine-footer--push': pushToBottom }]}>
+	<p>© {new Date().getFullYear()} Open Engine. Crafted at openengineproject.com.</p>
+	<nav aria-label="Legal">
+		<a href="/privacy">Privacy</a>
+		<span aria-hidden="true">·</span>
+	</nav>
+</footer>
+
+<style>
+	.openengine-footer {
+		width: min(100%, 1800px);
+		margin: clamp(48px, 7vw, 84px) auto 0;
+		padding: 25px 0 max(8px, env(safe-area-inset-bottom, 0px));
+		border-top: 1px solid rgba(255, 255, 255, .08);
+		color: #73717e;
+		font: 500 11px/1.55 var(--font-mono);
+		letter-spacing: .085em;
+		text-align: center;
+		text-transform: uppercase;
+	}
+
+	.openengine-footer--push {
+		margin-top: auto;
+	}
+
+	p {
+		margin: 0;
+	}
+
+	nav {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 7px;
+		margin-top: 7px;
+	}
+
+	a {
+		color: inherit;
+		text-decoration-color: rgba(151, 148, 161, .26);
+		text-underline-offset: 3px;
+		transition: color .2s ease, text-decoration-color .2s ease;
+	}
+
+	a:hover {
+		color: #aaa7b3;
+		text-decoration-color: rgba(170, 167, 179, .52);
+	}
+
+	@media (max-width: 560px) {
+		.openengine-footer {
+			width: 100%;
+			margin-top: 44px;
+			padding-top: 18px;
+			font-size: 10px;
+		}
+
+		.openengine-footer--push {
+			margin-top: auto;
+		}
+	}
+</style>

@@ -1,0 +1,1161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GameEngine CLI Manual · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="gameengine-cli-manual">GameEngine CLI Manual</h1>
+<p>The GameEngine CLI controls and inspects a running editor, automates editor UI and
+scene operations, captures rendering diagnostics, authors ECS and game-graph source,
+and runs engine build and test workflows.</p>
+<p>There are two equivalent command-line entry points:</p>
+<ul>
+<li><code>node Tools/ai/ge.mjs</code> is the development launcher. It rebuilds the TypeScript CLI
+when <code>mcp/src</code> is newer than <code>mcp/dist</code>.</li>
+<li><code>gameenginecli</code> is the standalone executable. It embeds Node and does not require a
+Node installation at runtime.</li>
+</ul>
+<p>Both use the same registry as the GameEngine MCP server. A typed tool added to
+<code>mcp/src/tools/</code> therefore appears in MCP, <code>ge</code>, and <code>gameenginecli</code> together.</p>
+<p>In this manual, <code>ge</code> means either entry point. Replace it with the command appropriate
+for the installation:</p>
+<pre><code class="language-bash">node Tools/ai/ge.mjs get_editor_state
+gameenginecli get_editor_state
+</code></pre>
+<h2 id="requirements">Requirements</h2>
+<p>The development launcher requires:</p>
+<ul>
+<li>Node.js 20 or later</li>
+<li>npm</li>
+<li>a GameEngine checkout</li>
+</ul>
+<p>Most commands also require a running editor with its debug server listening. The
+default address is <code>127.0.0.1:9999</code>.</p>
+<p>Host-side commands do not require a running editor:</p>
+<ul>
+<li><code>build_engine</code></li>
+<li><code>run_tests</code></li>
+<li><code>launch_editor</code></li>
+<li><code>editor_full_cycle</code></li>
+<li><code>shutdown_editor</code></li>
+<li>ECS source-authoring commands</li>
+<li>game-graph file and code-authoring commands</li>
+<li><code>list_debug_methods</code></li>
+</ul>
+<p>Some host-side operations still require a configured build tree, compiler, CMake, or
+project files appropriate to the operation.</p>
+<h2 id="installation-and-startup">Installation and startup</h2>
+<h3 id="development-launcher">Development launcher</h3>
+<p>Install the MCP/CLI dependencies once:</p>
+<pre><code class="language-bash">npm --prefix mcp ci
+</code></pre>
+<p>The launcher checks timestamps before every invocation and runs the TypeScript build
+when necessary:</p>
+<pre><code class="language-bash">node Tools/ai/ge.mjs --help
+</code></pre>
+<p>The first invocation also installs dependencies if <code>mcp/node_modules</code> is absent.
+Build messages go to stderr, leaving stdout safe for JSON consumers.</p>
+<p>The following environment variables control this behavior:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Variable</th><th>Effect</th></tr></thead><tbody><tr><td><code>GE_CLI_NO_BUILD=1</code></td><td>Skip the source-versus-output staleness check.</td></tr><tr><td><code>GE_CLI_FORCE_BUILD=1</code></td><td>Rebuild before the invocation.</td></tr></tbody></table>
+<h3 id="standalone-executable">Standalone executable</h3>
+<p>Build the native wrapper through CMake:</p>
+<pre><code class="language-bash">cmake --build build/&#x3C;preset> --config &#x3C;configuration> --target GameEngineCli
+</code></pre>
+<p>The result is staged under the build tree’s <code>bin/&#x3C;configuration></code> directory as
+<code>gameenginecli</code> or <code>gameenginecli.exe</code>. The executable contains the same JavaScript and
+tool registry as the development CLI at the time it was built. It does not perform the
+development launcher’s staleness check.</p>
+<p>The standalone executable is platform-specific and cannot be cross-packaged through
+Node SEA. Build it separately on each target platform.</p>
+<h3 id="start-or-connect-to-the-editor">Start or connect to the editor</h3>
+<p>To launch an editor and wait until its debug server is ready:</p>
+<pre><code class="language-bash">ge launch_editor
+ge wait_for_editor
+ge get_editor_state
+</code></pre>
+<p>For a non-default editor port:</p>
+<pre><code class="language-bash">export GE_EDITOR_DEBUG_PORT=11001
+ge launch_editor
+ge wait_for_editor
+ge get_editor_state
+</code></pre>
+<p>Set the environment variable when launching because the child editor inherits its debug
+port from the environment. <code>--port 11001</code> selects a port for the current CLI process but
+does not rewrite the launched editor’s environment. Global flags may appear before or
+after the tool name.</p>
+<h2 id="command-structure">Command structure</h2>
+<pre><code class="language-text">ge &#x3C;tool> [--flag value ...]
+ge &#x3C;tool> '{"key":"value"}'
+ge &#x3C;tool> --help
+ge help &#x3C;tool>
+ge list [--json]
+ge raw &#x3C;method> ['{...}']
+ge batch
+</code></pre>
+<p>Tool names use <code>snake_case</code>. A kebab-case command spelling is also accepted:</p>
+<pre><code class="language-bash">ge get_editor_state
+ge get-editor-state
+</code></pre>
+<p>Run <code>ge --help</code> for generated overview help and <code>ge &#x3C;tool> --help</code> for the exact,
+current parameters of one tool. Help is generated from the same schemas published to
+MCP clients, so it is the authoritative parameter reference.</p>
+<h2 id="global-options">Global options</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Option</th><th>Description</th></tr></thead><tbody><tr><td><code>--host &#x3C;host></code></td><td>Editor debug host. Default: <code>127.0.0.1</code>.</td></tr><tr><td><code>--port &#x3C;number></code></td><td>Editor debug port. Default: <code>9999</code>.</td></tr><tr><td><code>--timeout &#x3C;ms></code></td><td>Positive per-request timeout in milliseconds. Default: <code>30000</code>.</td></tr><tr><td><code>--json</code></td><td>Emit a machine-readable success or error envelope.</td></tr><tr><td><code>--dry-run</code></td><td>Parse and validate parameters, print the resolved call, and do not execute it.</td></tr><tr><td><code>--quiet</code></td><td>Suppress nonessential progress notes on stderr.</td></tr><tr><td><code>--help</code>, <code>-h</code></td><td>Show overview or per-tool help.</td></tr></tbody></table>
+<p>Connection defaults can also be set through the environment:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Variable</th><th>Description</th></tr></thead><tbody><tr><td><code>GE_EDITOR_DEBUG_HOST</code></td><td>Default debug-server host.</td></tr><tr><td><code>GE_EDITOR_DEBUG_PORT</code></td><td>Default debug-server port.</td></tr><tr><td><code>GE_IPC_PORT</code></td><td>Older fallback name for the default port.</td></tr><tr><td><code>GE_MCP_IPC_TIMEOUT_MS</code></td><td>Default timeout; takes precedence over <code>IPC_TIMEOUT_MS</code>.</td></tr><tr><td><code>IPC_TIMEOUT_MS</code></td><td>Older fallback name for the timeout.</td></tr></tbody></table>
+<p>Explicit command-line flags take precedence over environment defaults.</p>
+<h2 id="parameters">Parameters</h2>
+<p>The CLI derives flags and their types from each tool’s JSON schema. Schema keys are
+shown as kebab-case flags, while the original camelCase form remains accepted.</p>
+<h3 id="scalars-and-enums">Scalars and enums</h3>
+<pre><code class="language-bash">ge get_log --count 50 --min-level warning
+ge capture_resource --name SceneView.Depth --range-min 0 --range-max 1
+</code></pre>
+<p>Numbers must be finite numbers. Enum values must match one of the choices printed by
+the tool’s help.</p>
+<h3 id="booleans">Booleans</h3>
+<p>All of these forms are supported:</p>
+<pre><code class="language-bash">ge set_gizmos_visibility --all
+ge set_gizmos_visibility --no-all
+ge set_gizmos_visibility --all=false
+ge set_gizmos_visibility --all true
+</code></pre>
+<p>Accepted true values are <code>true</code>, <code>1</code>, <code>yes</code>, and <code>on</code>. Accepted false values are
+<code>false</code>, <code>0</code>, <code>no</code>, and <code>off</code>.</p>
+<p>Omission is distinct from false. For example, an omitted field in
+<code>set_gizmos_visibility</code> preserves the current value.</p>
+<h3 id="vectors">Vectors</h3>
+<p>Vectors accept positional comma-separated values. Object-shaped vectors also accept a
+JSON object, including partial objects when the tool permits omitted axes:</p>
+<pre><code class="language-bash">ge set_camera --position 70,9,50 --yaw-deg 300
+ge create_entity --position '{"y":9}'
+</code></pre>
+<p>Tuple-shaped parameters such as <code>set_camera --position</code> require every component.</p>
+<h3 id="lists">Lists</h3>
+<p>Lists may be comma-separated, repeated, or supplied as JSON:</p>
+<pre><code class="language-bash">ge launch_editor --extra-args first --extra-args second
+ge launch_editor --extra-args first,second
+ge launch_editor --extra-args '["first","second"]'
+</code></pre>
+<p>The exact option names and element types vary by tool.</p>
+<h3 id="maps-and-component-values">Maps and component values</h3>
+<p>Free-form objects accept repeatable <code>key=value</code> pairs or JSON:</p>
+<pre><code class="language-bash">ge set_component --entity-id 42 --component Light --values Intensity=3 --values Enabled=true
+ge set_component --entity-id 42 --component Light --values '{"Intensity":3,"Enabled":true}'
+</code></pre>
+<p>Unquoted <code>key=value</code> values are converted to booleans or numbers where the schema
+allows typed values. Graph parameter maps that explicitly require strings preserve
+their values as strings.</p>
+<h3 id="complete-json-parameter-object">Complete JSON parameter object</h3>
+<p>A single JSON object can replace all flags:</p>
+<pre><code class="language-bash">ge get_log '{"count":50,"minLevel":"warning"}'
+</code></pre>
+<p>The JSON object must be the only parameter argument. Quote it so the shell passes it as
+one token.</p>
+<h3 id="validate-without-executing">Validate without executing</h3>
+<p>Use <code>--dry-run</code> to check spelling, conversion, required values, and the final IPC method
+without contacting the editor:</p>
+<pre><code class="language-bash">ge set_camera --position 1,2,3 --dry-run
+</code></pre>
+<p>Example output:</p>
+<pre><code class="language-json">{
+  "tool": "set_camera",
+  "ipcMethod": null,
+  "params": {
+    "position": [1, 2, 3]
+  }
+}
+</code></pre>
+<h2 id="output">Output</h2>
+<p>By default, a tool prints its human-readable summary when it supplies one. Otherwise,
+it prints pretty-formatted JSON data.</p>
+<p>With <code>--json</code>, typed and raw calls emit a one-line envelope suitable for scripts:</p>
+<pre><code class="language-json">{"ok":true,"tool":"get_editor_state","data":{...}}
+</code></pre>
+<p>Failures also use stdout in JSON mode:</p>
+<pre><code class="language-json">{"ok":false,"tool":"get_editor_state","code":"EDITOR_UNREACHABLE","error":"..."}
+</code></pre>
+<p>Build/rebuild chatter and nonessential progress notes are written to stderr.</p>
+<p>Screenshot and resource-capture PNGs are never printed as base64. The CLI writes the
+PNG to the path reported by the editor, or to a generated <code>capture_&#x3C;time>_&#x3C;sequence>.png</code>
+path, and reports <code>savedTo</code>.</p>
+<h2 id="typed-tool-reference">Typed tool reference</h2>
+<p>The current registry contains 82 typed tools. <code>ge list</code> is the authoritative live list;
+<code>ge list --json</code> also includes each category and any differently named IPC method.</p>
+<h3 id="editor-and-scene-state">Editor and scene state</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>get_editor_state</code></td><td>Report play mode, active scene, selection, entity count, windows, monitors, and editor-session provenance.</td></tr><tr><td><code>get_log</code></td><td>Read the newest portion of the editor log with level and text filtering.</td></tr><tr><td><code>get_scene_hierarchy</code></td><td>Return the active scene’s entity hierarchy.</td></tr><tr><td><code>get_build_settings</code></td><td>Inspect workspace, asset roots, SDK state, platform settings, and resolved build outputs.</td></tr><tr><td><code>trigger_build</code></td><td>Start a platform build through the editor Build panel.</td></tr><tr><td><code>execute_command</code></td><td>Execute a named or numeric editor command, including play controls and common entity creation commands.</td></tr></tbody></table>
+<p><code>trigger_build</code> is asynchronous. Poll <code>get_log</code> for messages containing <code>Build:</code> to
+follow progress and locate the output artifact.</p>
+<h3 id="entities-and-components">Entities and components</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>create_entity</code></td><td>Create an entity with a Transform and optional components.</td></tr><tr><td><code>set_component</code></td><td>Add or update a reflected or schema-driven component.</td></tr><tr><td><code>delete_entity</code></td><td>Delete an entity subtree through the editor undo system.</td></tr><tr><td><code>select_entity</code></td><td>Select an entity and update the Inspector and gizmos.</td></tr><tr><td><code>get_entity_components</code></td><td>Read all component data for an entity.</td></tr><tr><td><code>query_ecs</code></td><td>Find entities containing a component.</td></tr><tr><td><code>save_scene</code></td><td>Save or Save As the active scene through the editor document path.</td></tr><tr><td><code>undo</code></td><td>Invoke the editor’s real undo stack.</td></tr><tr><td><code>redo</code></td><td>Invoke the editor’s real redo stack.</td></tr><tr><td><code>get_undo_stack</code></td><td>Inspect undo and redo entries and the stack cursor.</td></tr></tbody></table>
+<h3 id="animation-and-skinning">Animation and skinning</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>spawn_skinned_model</code></td><td>Spawn a skinned FBX/glTF model with an optional animation clip and retargeting.</td></tr><tr><td><code>get_skeleton_store_state</code></td><td>Inspect per-world skeleton palettes, atlas offsets, and GPU buffers.</td></tr></tbody></table>
+<h3 id="assets">Assets</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>open_asset</code></td><td>Open an asset in its appropriate editor panel.</td></tr><tr><td><code>select_asset</code></td><td>Select an asset and push it into Asset View.</td></tr><tr><td><code>get_asset_preview</code></td><td>Inspect the current Asset View preview state.</td></tr></tbody></table>
+<h3 id="ui-interaction">UI interaction</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>get_ui_tree</code></td><td>Inspect the editor UI element tree.</td></tr><tr><td><code>get_panel_tree</code></td><td>Inspect a docked panel’s rendered subtree by panel name.</td></tr><tr><td><code>click_element</code></td><td>Click by UI element ID or screen coordinates.</td></tr><tr><td><code>move_pointer</code></td><td>Move the UI pointer and report the resolved hover target.</td></tr><tr><td><code>send_key</code></td><td>Inject keyboard input through the editor’s normal key-event path.</td></tr></tbody></table>
+<h3 id="scene-view-camera">Scene view camera</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>get_camera</code></td><td>Read the Scene View camera pose.</td></tr><tr><td><code>set_camera</code></td><td>Set selected camera fields immediately.</td></tr><tr><td><code>move_camera</code></td><td>Interpolate smoothly to a target camera pose.</td></tr><tr><td><code>look_at</code></td><td>Aim the camera at a world position or entity.</td></tr><tr><td><code>set_gizmos_visibility</code></td><td>Query or change light and transform gizmo visibility.</td></tr></tbody></table>
+<h3 id="screenshots-and-captures">Screenshots and captures</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>take_screenshot</code></td><td>Capture the editor composite or a selected region as PNG.</td></tr><tr><td><code>capture_resource</code></td><td>Capture a live render-graph texture as PNG or a buffer as bytes.</td></tr><tr><td><code>trigger_capture</code></td><td>Trigger a RenderDoc frame capture when the editor is running under RenderDoc.</td></tr></tbody></table>
+<p>Use <code>get_render_graph_resources</code> to discover exact resource names before calling
+<code>capture_resource</code>.</p>
+<h3 id="render-graph-introspection">Render graph introspection</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>get_render_graph_overview</code></td><td>Report compile, timing, resource, barrier, pool, and validation summaries.</td></tr><tr><td><code>get_render_graph_passes</code></td><td>List passes in execution order with queue and optional access data.</td></tr><tr><td><code>get_render_graph_resources</code></td><td>List resources, formats, sizes, lifetimes, aliasing, and state.</td></tr><tr><td><code>get_render_graph_pass_detail</code></td><td>Inspect one pass’s accesses, barriers, and dependencies.</td></tr><tr><td><code>get_render_graph_dependencies</code></td><td>Return the compiled pass dependency DAG.</td></tr><tr><td><code>get_render_graph_validation</code></td><td>Return graph validation errors and warnings.</td></tr><tr><td><code>get_pass_descriptors</code></td><td>Inspect physical descriptors bound by draws in a pass.</td></tr></tbody></table>
+<h3 id="render-quality-settings">Render quality settings</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th><th>Persistence</th></tr></thead><tbody><tr><td><code>get_msaa</code></td><td>Read default and supported MSAA sample counts.</td><td>Read only</td></tr><tr><td><code>set_msaa</code></td><td>Set the project MSAA sample count and apply it live.</td><td>Project</td></tr><tr><td><code>set_aa_mode</code></td><td>Select the anti-aliasing mode.</td><td>Project</td></tr><tr><td><code>set_taa_render_scale</code></td><td>Set the TAA rendering scale.</td><td>Project</td></tr><tr><td><code>set_dynamic_resolution</code></td><td>Configure the live dynamic-resolution controller.</td><td>Session</td></tr><tr><td><code>set_lod</code></td><td>Tune live mesh LOD selection.</td><td>Session</td></tr><tr><td><code>set_shadow_quality</code></td><td>Select the live shadow filtering kernel.</td><td>Session</td></tr><tr><td><code>set_shadow_pcss</code></td><td>Enable and tune contact-hardening PCSS.</td><td>Session</td></tr><tr><td><code>set_moments_resolution</code></td><td>Select MSM4 moment-map resolution.</td><td>Session</td></tr><tr><td><code>set_msm_blur_mode</code></td><td>Select the MSM4 blur kernel.</td><td>Session</td></tr><tr><td><code>get_hdr_output</code></td><td>Inspect device, swapchain, UI encoding, and SDR-white HDR state.</td><td>Read only</td></tr><tr><td><code>set_hdr_output</code></td><td>Configure HDR mode and request a live window refresh.</td><td>Project</td></tr></tbody></table>
+<p>Environment overrides can outrank some persisted settings during the live session. Read
+the individual tool help and inspect the returned effective state before asserting that
+a visual feature changed.</p>
+<h3 id="rendering-statistics-and-profilers">Rendering statistics and profilers</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>get_render_stats</code></td><td>Read rendering performance statistics.</td></tr><tr><td><code>get_validation_stats</code></td><td>Read or reset exact per-VUID Vulkan validation counters.</td></tr><tr><td><code>get_terrain_stats</code></td><td>Diagnose CBT terrain occupancy, convergence, saturation, and overflow.</td></tr><tr><td><code>get_ui_profile_history</code></td><td>Read the UI update profiler’s frame-history ring buffer.</td></tr><tr><td><code>get_cpu_profiler</code></td><td>Read the last-frame hierarchical and flat CPU profile.</td></tr><tr><td><code>get_gpu_profiler</code></td><td>Read last-frame per-pass CPU/GPU render-graph timings.</td></tr><tr><td><code>toggle_shadow_debug</code></td><td>Select or cycle shadow-debug visualization.</td></tr><tr><td><code>toggle_shadow_thumbnails</code></td><td>Toggle cascade depth-map thumbnails.</td></tr></tbody></table>
+<p><code>get_ui_profile_history</code> requires the editor to have been launched with
+<code>GE_UI_UPDATE_PROFILE=1</code>.</p>
+<h3 id="windows-and-monitors">Windows and monitors</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>get_monitors</code></td><td>Read DebugMetrics monitor summaries and optional sample history.</td></tr><tr><td><code>move_window</code></td><td>Move or resize an editor window, including placement on a selected monitor.</td></tr></tbody></table>
+<h3 id="game-logic-graphs">Game logic graphs</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>list_game_graph_actions</code></td><td>List precompiled action types, optionally by category.</td></tr><tr><td><code>get_game_graph</code></td><td>Read nodes, links, variables, and viewport from a game-logic graph.</td></tr><tr><td><code>add_game_graph_node</code></td><td>Add a catalog action node with default pins and parameters.</td></tr><tr><td><code>update_game_graph_node</code></td><td>Change a node’s type, position, or parameters.</td></tr><tr><td><code>delete_game_graph_node</code></td><td>Delete a node and its attached links.</td></tr><tr><td><code>link_game_graph_nodes</code></td><td>Create or replace a link between pins.</td></tr><tr><td><code>write_game_graph_cpp</code></td><td>Generate and write fast-play C++ glue.</td></tr><tr><td><code>write_game_graph_action_code</code></td><td>Create or replace a custom C++ action implementation stub.</td></tr></tbody></table>
+<p>These commands modify project files. Use version control to review generated changes.</p>
+<h3 id="ecs-authoring">ECS authoring</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>create_game_system</code></td><td>Generate a global per-frame <code>GameSystem</code> C# file.</td></tr><tr><td><code>create_entity_system</code></td><td>Generate an <code>IEntitySystem</code> C# file with source-generated chunk iteration.</td></tr><tr><td><code>create_component</code></td><td>Generate an unmanaged <code>IComponent</code> C# struct.</td></tr><tr><td><code>list_ecs_systems</code></td><td>Scan project C# files and report systems, order, and component access.</td></tr></tbody></table>
+<p>The three creation commands modify project files and reject invalid or unsafe names.</p>
+<h3 id="build-launch-and-lifecycle">Build, launch, and lifecycle</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>build_engine</code></td><td>Build an engine target through the detected CMake preset.</td></tr><tr><td><code>run_tests</code></td><td>Build a test target and execute matching CTest tests.</td></tr><tr><td><code>launch_editor</code></td><td>Free the selected debug port and launch the editor in the background.</td></tr><tr><td><code>wait_for_editor</code></td><td>Wait for the configured editor debug server to accept connections.</td></tr><tr><td><code>editor_full_cycle</code></td><td>Free the port, build Editor, launch it, wait, and verify editor state.</td></tr><tr><td><code>shutdown_editor</code></td><td>Shut down every editor process on the machine, gracefully and then forcibly if necessary.</td></tr></tbody></table>
+<p>Prefer shutting down one known editor through its own debug port:</p>
+<pre><code class="language-bash">ge raw shutdown --port 11001
+</code></pre>
+<p><code>shutdown_editor</code> is intentionally machine-wide so it can release PDB locks. It can
+terminate editor sessions from other branches and worktrees and should not be used as a
+routine single-session stop command.</p>
+<h3 id="debug-surface-discovery">Debug surface discovery</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Tool</th><th>Purpose</th></tr></thead><tbody><tr><td><code>list_debug_methods</code></td><td>List raw-only debug methods and extract their parameter documentation from C++ registrations.</td></tr></tbody></table>
+<h2 id="raw-debug-server-calls">Raw debug-server calls</h2>
+<p><code>raw</code> forwards a method and one JSON object directly to the editor without schema
+validation:</p>
+<pre><code class="language-bash">ge raw get_asset_list '{}'
+ge raw open_scene '{"path":"Assets/Scenes/Main.scene"}'
+ge raw physics_raycast '{"origin":[0,10,0],"direction":[0,-1,0]}'
+</code></pre>
+<p>Use raw mode when a debug-server handler has not yet been promoted to a typed tool. Run
+either command below to discover the current raw surface and its documentation:</p>
+<pre><code class="language-bash">ge list_debug_methods
+node Tools/ai/ipc-method-drift.mjs --list
+</code></pre>
+<p>Raw calls accept zero parameters or exactly one quoted JSON object. They honor the
+connection flags, <code>--json</code>, and <code>--dry-run</code>.</p>
+<p>The 35 raw-only methods at the time of writing are:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Method</th><th>Purpose</th></tr></thead><tbody><tr><td><code>capture_shadow_diagnostics</code></td><td>Capture deferred shadow and draw-stream stability hashes.</td></tr><tr><td><code>cbt_force_vertex_eval</code></td><td>Force a CBT terrain vertex-evaluation pass.</td></tr><tr><td><code>debug_crash</code></td><td>Deliberately crash the editor to test crash handling.</td></tr><tr><td><code>enumerate_provenance</code></td><td>Dump asset provenance.</td></tr><tr><td><code>export_model_materials</code></td><td>Export materials from a model.</td></tr><tr><td><code>get_asset_list</code></td><td>List registered assets.</td></tr><tr><td><code>get_asset_sources</code></td><td>List mounted asset roots.</td></tr><tr><td><code>get_context_menu</code></td><td>Read the context menu captured by <code>open_context_menu</code>.</td></tr><tr><td><code>get_mesh_registry</code></td><td>Dump the GPU mesh registry.</td></tr><tr><td><code>get_scene_tool</code></td><td>Read the active Scene View gizmo tool.</td></tr><tr><td><code>get_terrain_debug</code></td><td>Dump detailed CBT terrain internals.</td></tr><tr><td><code>get_ui_clip_stats</code></td><td>Read UI clip-rectangle statistics.</td></tr><tr><td><code>import_proflares</code></td><td>Run the one-off ProFlares importer.</td></tr><tr><td><code>input_text</code></td><td>Enter text through per-keystroke UI events.</td></tr><tr><td><code>invoke_menu_item</code></td><td>Invoke an item from a captured context menu.</td></tr><tr><td><code>movie_record</code></td><td>Start or stop editor movie recording.</td></tr><tr><td><code>open_context_menu</code></td><td>Open and capture a context menu for scripted UI flows.</td></tr><tr><td><code>open_scene</code></td><td>Open a scene with the editor’s dirty-document and recovery policy.</td></tr><tr><td><code>physics_raycast</code></td><td>Execute a single physics raycast.</td></tr><tr><td><code>respond_modal</code></td><td>Respond to a modal dialog during an automated flow.</td></tr><tr><td><code>select_smart_folder</code></td><td>Select an Assets-panel smart folder.</td></tr><tr><td><code>send_text</code></td><td>Inject text through the lower-level text path.</td></tr><tr><td><code>set_entity_enabled</code></td><td>Toggle entity enablement.</td></tr><tr><td><code>set_scene_tool</code></td><td>Select the active Scene View gizmo tool.</td></tr><tr><td><code>set_scene_view_mode</code></td><td>Select the Scene View display mode.</td></tr><tr><td><code>set_scroll</code></td><td>Set a ScrollView offset.</td></tr><tr><td><code>set_terrain_brush</code></td><td>Configure the terrain sculpt brush.</td></tr><tr><td><code>set_text_field</code></td><td>Write a text field directly without per-keystroke callbacks.</td></tr><tr><td><code>show_universal_search</code></td><td>Open the universal-search overlay.</td></tr><tr><td><code>simulate_double_click_drag</code></td><td>Simulate double-click followed by dragging.</td></tr><tr><td><code>simulate_mouse_drag</code></td><td>Simulate a press, move, and release drag.</td></tr><tr><td><code>spawn_bench_scene</code></td><td>Spawn the performance benchmark scene.</td></tr><tr><td><code>spawn_model</code></td><td>Spawn a model asset through the legacy raw workflow.</td></tr><tr><td><code>terrain_sculpt_dab</code></td><td>Apply one terrain sculpt dab.</td></tr><tr><td><code>undock_panel</code></td><td>Float a docked panel.</td></tr></tbody></table>
+<p><code>debug_crash</code> is destructive by design. Use it only in an isolated editor launched for
+crash-handler testing.</p>
+<h2 id="batch-mode">Batch mode</h2>
+<p><code>ge batch</code> sends many raw debug-server requests over one TCP connection. It reads one
+JSON object per nonempty stdin line:</p>
+<pre><code class="language-text">{"method":"get_editor_state","params":{}}
+{"method":"get_log","params":{"count":20}}
+{"method":"take_screenshot","params":{"target":"viewport"}}
+</code></pre>
+<p>Example:</p>
+<pre><code class="language-bash">printf '%s\n' \
+  '{"method":"get_editor_state","params":{}}' \
+  '{"method":"get_log","params":{"count":20}}' \
+  | ge batch
+</code></pre>
+<p>Important batch semantics:</p>
+<ul>
+<li>Batch calls raw debug-server methods. Host-side tools such as <code>build_engine</code>,
+<code>run_tests</code>, and <code>launch_editor</code> cannot run through this protocol.</li>
+<li>The CLI assigns string request IDs <code>"1"</code>, <code>"2"</code>, and so on in stdin order. An <code>id</code>
+supplied in the input object is ignored.</li>
+<li>Responses can arrive out of order. Pair each response with the assigned <code>id</code> rather
+than assuming output line order matches input line order.</li>
+<li>Deferred screenshots and resource captures commonly answer after faster requests.</li>
+<li>The process exits after stdin closes and every sent request has received a response.</li>
+<li>Empty lines are ignored. Malformed JSON lines are reported to stderr and skipped.</li>
+<li>The timeout watchdog runs only while requests are outstanding; the producer may idle
+between requests indefinitely.</li>
+</ul>
+<p>As in typed and raw mode, embedded PNG data is written to disk and replaced with a
+<code>savedTo</code> path.</p>
+<h2 id="exit-status">Exit status</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th align="right">Status</th><th>Meaning</th></tr></thead><tbody><tr><td align="right"><code>0</code></td><td>Success.</td></tr><tr><td align="right"><code>1</code></td><td>The tool or editor handler ran and failed.</td></tr><tr><td align="right"><code>2</code></td><td>Invalid command-line usage or parameters.</td></tr><tr><td align="right"><code>3</code></td><td>The editor was unreachable or closed the connection.</td></tr><tr><td align="right"><code>4</code></td><td>A request timed out.</td></tr></tbody></table>
+<p>Shell automation should check the exit status even when parsing JSON output.</p>
+<p>The JSON error codes are:</p>
+<ul>
+<li><code>BAD_ARGUMENT</code></li>
+<li><code>EDITOR_UNREACHABLE</code></li>
+<li><code>EDITOR_TIMEOUT</code></li>
+<li><code>TOOL_FAILED</code></li>
+</ul>
+<h2 id="common-workflows">Common workflows</h2>
+<h3 id="inspect-the-current-editor">Inspect the current editor</h3>
+<pre><code class="language-bash">ge get_editor_state
+ge get_scene_hierarchy
+ge get_log --count 100 --min-level warning
+</code></pre>
+<p>The <code>session</code> object returned by <code>get_editor_state</code> identifies the worktree, branch at
+launch, build configuration, and optional session label. Use the worktree path—not the
+possibly stale branch-at-launch label—as the durable identity of an editor session.</p>
+<h3 id="create-and-inspect-an-entity">Create and inspect an entity</h3>
+<pre><code class="language-bash">ge create_entity --name InspectionLight --components '{"Light":{"Type":1,"Intensity":3}}'
+ge query_ecs --has-component Light
+ge get_entity_components --entity-id &#x3C;id>
+</code></pre>
+<p>Use <code>ge create_entity --help</code> to confirm the current component-map spelling before
+scripting this flow.</p>
+<h3 id="capture-a-clean-viewport-image">Capture a clean viewport image</h3>
+<pre><code class="language-bash">ge set_gizmos_visibility --no-all
+ge take_screenshot --target viewport
+</code></pre>
+<p>Call <code>set_gizmos_visibility</code> with no flags to query the current state. Restore the
+previous state after an automated capture when sharing an interactive editor session.</p>
+<h3 id="inspect-a-render-graph-problem">Inspect a render-graph problem</h3>
+<pre><code class="language-bash">ge get_render_graph_overview
+ge get_render_graph_validation
+ge get_render_graph_passes --include-accesses
+ge get_render_graph_resources
+ge get_render_graph_pass_detail --pass-name &#x3C;pass-name>
+</code></pre>
+<p>Use <code>capture_resource</code> only after discovering the current resource name and format.</p>
+<h3 id="run-a-build-launch-verification-cycle">Run a build-launch verification cycle</h3>
+<pre><code class="language-bash">ge editor_full_cycle
+ge get_editor_state
+ge get_log --count 100 --min-level warning
+</code></pre>
+<p>When several editor sessions are running, prefer explicit ports and avoid the
+machine-wide <code>shutdown_editor</code> command.</p>
+<h3 id="script-safely-with-json">Script safely with JSON</h3>
+<pre><code class="language-bash">if state=$(ge get_editor_state --json); then
+  printf '%s\n' "$state"
+else
+  status=$?
+  printf 'get_editor_state failed with status %s\n' "$status" >&#x26;2
+fi
+</code></pre>
+<p><code>--json</code> keeps stdout machine-readable. Diagnostic and build messages remain on stderr.</p>
+<h2 id="safety-and-persistence">Safety and persistence</h2>
+<p>The CLI is a privileged local development interface. It can modify scenes and project
+files, change persisted rendering settings, build and execute code, and terminate editor
+processes.</p>
+<p>Before automating mutations:</p>
+<ul>
+<li>Confirm the target editor with <code>get_editor_state</code>, including <code>session.worktreePath</code>.</li>
+<li>Pass <code>--port</code> for worktree-specific or benchmark editors.</li>
+<li>Use <code>--dry-run</code> for argument validation.</li>
+<li>Save or commit project files before bulk scene, ECS, or graph changes.</li>
+<li>Treat <code>set_msaa</code>, <code>set_aa_mode</code>, <code>set_taa_render_scale</code>, and <code>set_hdr_output</code> as project
+configuration changes rather than temporary experiments.</li>
+<li>Treat <code>shutdown_editor</code> as a machine-wide operation.</li>
+<li>Use raw methods cautiously because their parameters are not schema-validated.</li>
+</ul>
+<p>The debug server and host-side tools have broad access to the editor, compiler, and
+checkout. Do not expose the port to untrusted networks or run the CLI against untrusted
+projects.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="editor-is-unreachable">Editor is unreachable</h3>
+<p>Confirm that the editor is running and that the selected port matches its debug server:</p>
+<pre><code class="language-bash">ge wait_for_editor --port 9999
+ge get_editor_state --port 9999
+</code></pre>
+<p>For worktree or benchmark sessions, inspect the launch configuration and use the
+session-specific port.</p>
+<h3 id="request-timed-out">Request timed out</h3>
+<p>Heavy screenshots and GPU readbacks can legitimately take several frames. Increase the
+watchdog for the invocation:</p>
+<pre><code class="language-bash">ge capture_resource --name SceneView.Color --timeout 60000
+</code></pre>
+<p>A native operating-system modal can stall the editor debug server. Prefer the
+scriptable <code>open_context_menu</code> and <code>respond_modal</code> paths for automation.</p>
+<h3 id="development-cli-output-is-missing-or-stale">Development CLI output is missing or stale</h3>
+<p>Force a rebuild:</p>
+<pre><code class="language-bash">GE_CLI_FORCE_BUILD=1 node Tools/ai/ge.mjs --help
+</code></pre>
+<p>If dependencies or build output are missing:</p>
+<pre><code class="language-bash">npm --prefix mcp ci
+npm --prefix mcp run build
+</code></pre>
+<p>Do not set <code>GE_CLI_NO_BUILD=1</code> during normal tool development unless another build step
+has already produced <code>mcp/dist</code>.</p>
+<h3 id="a-typed-tool-does-not-exist-for-a-debug-method">A typed tool does not exist for a debug method</h3>
+<p>Inspect the raw-only surface:</p>
+<pre><code class="language-bash">ge list_debug_methods
+node Tools/ai/ipc-method-drift.mjs --list
+</code></pre>
+<p>Then call the method with <code>ge raw</code>. Prefer typed tools in reusable scripts because they
+validate inputs and provide generated help.</p>
+<h2 id="keeping-the-manual-current">Keeping the manual current</h2>
+<p>The executable registry remains the source of truth:</p>
+<pre><code class="language-bash">ge list --json
+ge &#x3C;tool> --help
+node Tools/ai/ipc-method-drift.mjs --list
+</code></pre>
+<p>When adding a typed tool, update the relevant reference table and examples in this
+manual. When promoting a raw-only method, remove it from the raw appendix. The
+<code>EditorIpcMethodDrift</code> test enforces code-level coverage between C++ handlers and the
+typed/raw registries, while this manual provides the operator-oriented explanation.</p>
+  </main>
+</body>
+</html>

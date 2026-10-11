@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Input System Design · Open Engine Documentation</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html { background: #05070c; }
+    body { margin: 0; color: #cbc8d3; background: #05070c; }
+    .oe-markdown-document { width: min(100%, 1080px); margin: 0 auto; padding: 56px clamp(20px, 5vw, 72px) 96px; }
+    h1, h2, h3, h4 { color: #f2f0f6; font-weight: 400; line-height: 1.15; }
+    h1 { margin: 0 0 32px; font-size: clamp(32px, 4.8vw, 58px); font-weight: 300; letter-spacing: .035em; }
+    h2 { margin: 52px 0 18px; padding-bottom: 12px; border-bottom: 1px solid rgba(139, 172, 204, .2); font-size: clamp(25px, 3vw, 34px); }
+    h3 { margin: 34px 0 14px; font-size: 22px; }
+    p, li { font-size: 16px; font-weight: 300; line-height: 1.72; }
+    a { color: #8beeff; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code { color: #c4efff; }
+    pre { overflow-x: auto; padding: 18px; border: 1px solid rgba(139, 172, 204, .18); background: #05070b; color: #c4efff; line-height: 1.55; }
+    table { width: 100%; border-collapse: collapse; margin: 24px 0; }
+    th, td { padding: 10px 12px; border: 1px solid rgba(139, 172, 204, .18); text-align: left; vertical-align: top; }
+    th { color: #f2f0f6; background: rgba(17, 24, 39, .86); }
+    blockquote { margin: 24px 0; padding: 2px 20px; border-left: 3px solid #6ee7ff; background: rgba(110, 231, 255, .06); }
+    .mermaid .cluster rect, pre.mermaid svg .cluster rect { fill: #080c13 !important; stroke: rgba(110, 231, 255, .32) !important; }
+    .mermaid .cluster-label text, .mermaid .cluster-label span, pre.mermaid svg .cluster-label text, pre.mermaid svg .cluster-label span { fill: #d9f8ff !important; color: #d9f8ff !important; }
+    img { max-width: 100%; height: auto; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid rgba(139, 172, 204, .18); }
+  </style>
+</head>
+<body>
+  <main class="oe-markdown-document">
+<h1 id="inputsystem-module-design">InputSystem Module Design</h1>
+<h2 id="goals">Goals</h2>
+<ul>
+<li>Centralize input handling for both <strong>editor</strong> and <strong>runtime/game</strong>.</li>
+<li>Support <strong>both polling and callback-based</strong> consumption.</li>
+<li>Provide a flexible <strong>action mapping layer</strong>:
+<ul>
+<li>Named actions (e.g. <code>Editor.SceneView.MoveForward</code>).</li>
+<li>Bindings to physical inputs (keys, mouse buttons, axes, gamepad controls).</li>
+<li>Allow <strong>rebinding at runtime</strong> and <strong>persisting</strong> profiles.</li>
+</ul>
+</li>
+<li>Allow multiple <strong>input contexts</strong> (Editor vs Game, overlays, modal dialogs).</li>
+<li>Live in its own module: <code>Engine/Modules/Input</code>, so <strong>UI</strong> and <strong>Engine</strong> can depend on it, and it can depend on <strong>Platform</strong> (for raw events) and <strong>Types</strong>.</li>
+</ul>
+<hr>
+<h2 id="architecture-overview">Architecture Overview</h2>
+<p>Layers:</p>
+<ol>
+<li>
+<p><strong>Raw input layer</strong> (device-centric)</p>
+<ul>
+<li>Feeds key/mouse/gamepad events from <code>Platform::Window</code> into the InputSystem.</li>
+<li>No knowledge of actions or contexts.</li>
+</ul>
+</li>
+<li>
+<p><strong>State layer</strong> (polling)</p>
+<ul>
+<li>Tracks per-frame state for keys/buttons and axes:
+<ul>
+<li><code>IsKeyDown</code>, <code>WasKeyPressed</code>, <code>WasKeyReleased</code>.</li>
+<li>Mouse position and wheel.</li>
+</ul>
+</li>
+<li>Provides snapshot-style polling APIs for systems that want to read directly.</li>
+</ul>
+</li>
+<li>
+<p><strong>Action &#x26; mapping layer</strong></p>
+<ul>
+<li>Defines <strong>named actions</strong> and <strong>axes</strong>.</li>
+<li>Maps them to one or more physical inputs (with optional scale, deadzones, etc.).</li>
+<li>Computes per-frame <code>ActionState</code> (pressed / justPressed / justReleased / value).</li>
+</ul>
+</li>
+<li>
+<p><strong>Context &#x26; routing layer</strong></p>
+<ul>
+<li>Groups actions into <strong>contexts</strong> (e.g. <code>Editor.SceneView</code>, <code>Gameplay</code>, <code>DebugOverlay</code>).</li>
+<li>At runtime, one or more contexts are <strong>active</strong>; only active contexts produce action events.</li>
+<li>Supports <strong>stacking/priority</strong> (e.g. modal dialog can block gameplay actions) and <strong>consumption</strong> (higher-priority contexts can “eat” actions so lower-priority ones do not see them).</li>
+</ul>
+</li>
+<li>
+<p><strong>Consumers</strong></p>
+<ul>
+<li><strong>Editor</strong>: Scene View / EditorCamera, gizmo tools, menus.</li>
+<li><strong>Game runtime</strong>: gameplay systems.</li>
+<li><strong>UI</strong>: can either:
+<ul>
+<li>Continue using its own UIEvents (current design), or</li>
+<li>Subscribe to InputSystem actions where needed (e.g. global shortcuts).</li>
+</ul>
+</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2 id="module-placement-and-dependencies">Module Placement and Dependencies</h2>
+<ul>
+<li>New module: <code>Engine/Modules/Input</code>
+<ul>
+<li><code>Include/Input/*.h</code> for public API.</li>
+<li><code>Source/*.cpp</code> for implementation (can be added incrementally).</li>
+</ul>
+</li>
+<li>Dependencies:
+<ul>
+<li>Depends on <code>Engine/Modules/Types</code> for basic math/types if needed.</li>
+<li>Depends on <code>Engine/Modules/Platform</code> for key codes and window integration.</li>
+</ul>
+</li>
+<li>Consumers:
+<ul>
+<li><strong>Apps/Editor</strong>: owns an <code>InputSystem</code> instance and wires it to each <code>Platform::Window</code>.</li>
+<li><strong>Engine/Modules/UI</strong>: can query or subscribe to input for higher-level features.</li>
+</ul>
+</li>
+</ul>
+<p>We do <strong>not</strong> need to fully switch UI over immediately; we can introduce the module and start using it in the editor first (Scene View, camera controls).</p>
+<hr>
+<h2 id="core-types-conceptual">Core Types (Conceptual)</h2>
+<pre><code class="language-cpp">namespace GameEngine { namespace Input {
+
+using InputId = std::uint64_t;
+
+// Simple constexpr FNV-1a 64-bit hash for input ids (actions, contexts).
+constexpr InputId HashInput(std::string_view sv) {
+    constexpr InputId kFnvOffset = 14695981039346656037ull;
+    constexpr InputId kFnvPrime  = 1099511628211ull;
+    InputId hash = kFnvOffset;
+    for (char c : sv) {
+        hash ^= static_cast&#x3C;unsigned char>(c);
+        hash *= kFnvPrime;
+    }
+    return hash;
+}
+
+using ActionId  = InputId;   // e.g. HashInput("Editor.SceneView.MoveForward")
+using ContextId = InputId;   // e.g. HashInput("Editor.SceneView")
+
+enum class DeviceType { Keyboard, Mouse, Gamepad, Unknown };
+
+// For now we can reuse GLFW key codes and mouse buttons as integers.
+using KeyCode   = int;
+using MouseCode = int;
+
+// Generic pointer index for multi-touch or mouse pointers (0 = primary mouse).
+using PointerId = std::uint32_t;
+
+struct ActionState {
+    bool  pressed      = false; // currently down
+    bool  justPressed  = false; // pressed this frame
+    bool  justReleased = false; // released this frame
+    float value        = 0.0f;  // for axes (e.g. -1..1, scroll delta)
+};
+
+struct ActionBinding {
+    DeviceType device = DeviceType::Keyboard;
+    int        code   = 0;      // key/button/axis code (GLFW or engine code)
+    float      scale  = 1.0f;   // for analog axes
+
+    // Optional chord requirements (modifier keys).
+    // - requiredMods: must be present (e.g. Shift)
+    // - forbiddenMods: must NOT be present (e.g. forbid Shift so plain 'A' doesn't
+    //   also fire when Shift+A is intended)
+    int        requiredMods = 0;
+    int        forbiddenMods = 0;
+};
+
+struct ActionDesc {
+    ActionId                     id;
+    std::vector&#x3C;ActionBinding>   bindings;
+    bool                         isAxis = false; // value-based vs boolean
+};
+
+
+// Notes on modifier chords:
+// - Bindings are OR'd within an action, but each binding can additionally require
+//   a modifier mask (Shift/Ctrl/Alt/Super).
+// - This keeps existing single-key bindings working, while allowing shortcuts
+//   like Shift+A or Ctrl+Shift+P.
+struct ActionEvent {
+    ActionId    id;
+    ActionState state;
+    bool        consumed = false; // listeners can mark to stop propagation
+};
+
+using ActionCallback = std::function&#x3C;void(ActionEvent&#x26;)>;
+
+}} // namespace GameEngine::Input
+</code></pre>
+<hr>
+<h2 id="inputsystem-api-sketch">InputSystem API (Sketch)</h2>
+<p>We expose one main class in <code>InputSystem.h</code>:</p>
+<pre><code class="language-cpp">namespace GameEngine { namespace Input {
+
+class IRawInputSink {
+public:
+    virtual ~IRawInputSink() = default;
+
+    virtual void OnKey(int key, int action, int mods) = 0;
+    virtual void OnChar(unsigned int codepoint) = 0;
+    virtual void OnMouseButton(int button, bool down) = 0;
+    virtual void OnMouseMove(float x, float y) = 0;
+    virtual void OnMouseScroll(float dx, float dy) = 0;
+
+    // Generic pointer input (mouse or touch). PointerId 0 is conventionally the mouse.
+    virtual void OnPointerDown(PointerId id, float x, float y) {}
+    virtual void OnPointerUp(PointerId id, float x, float y) {}
+    virtual void OnPointerMove(PointerId id, float x, float y) {}
+};
+
+class InputSystem : public IRawInputSink {
+public:
+    struct ListenerHandle { uint32_t id = 0; }; // opaque
+
+    // Per-frame update (computes justPressed/justReleased, clears transient state)
+    void Update(float deltaTime);
+
+    // --- Raw polling layer ---
+    bool IsKeyDown(KeyCode key) const;
+    bool WasKeyPressed(KeyCode key) const;
+    bool WasKeyReleased(KeyCode key) const;
+
+    std::pair&#x3C;float,float> GetMousePosition() const;
+    bool IsMouseButtonDown(MouseCode button) const;
+
+    // --- Action registration &#x26; mapping ---
+    void RegisterAction(const ContextId&#x26; context, const ActionDesc&#x26; desc);
+    void RemoveAction(const ContextId&#x26; context, const ActionId&#x26; id);
+
+    void BindKey(const ContextId&#x26; context, const ActionId&#x26; id, const ActionBinding&#x26; binding);
+    void ClearBindings(const ContextId&#x26; context, const ActionId&#x26; id);
+
+    // --- Context management ---
+    void PushContext(const ContextId&#x26; context);
+    void PopContext(const ContextId&#x26; context);
+    void SetContextEnabled(const ContextId&#x26; context, bool enabled);
+
+    // --- Action polling ---
+    ActionState GetActionState(const ActionId&#x26; id) const; // searches active contexts
+    bool IsActionActive(const ActionId&#x26; id) const;
+    bool WasActionTriggered(const ActionId&#x26; id) const; // justPressed or similar
+
+    // --- Callbacks ---
+    ListenerHandle AddActionListener(const ActionId&#x26; id, ActionCallback cb);
+    void RemoveActionListener(ListenerHandle handle);
+
+    // --- Persistence (sketch) ---
+    bool SerializeBindingsToJson(std::string&#x26; outJson) const;
+    bool DeserializeBindingsFromJson(const std::string&#x26; json);
+
+    // IRawInputSink implementation (called from Platform::Window)
+    void OnKey(int key, int action, int mods) override;
+    void OnChar(unsigned int codepoint) override;
+    void OnMouseButton(int button, bool down) override;
+    void OnMouseMove(float x, float y) override;
+    void OnMouseScroll(float dx, float dy) override;
+};
+
+}} // namespace GameEngine::Input
+</code></pre>
+<p>The <strong>polling</strong> side covers <code>IsKeyDown</code> / <code>IsActionActive</code>, while the <strong>callback</strong> side lets systems subscribe to specific actions (<code>AddActionListener</code>).</p>
+<hr>
+<h2 id="editor-integration-scene-view--editorcamera">Editor Integration (Scene View &#x26; EditorCamera)</h2>
+<h3 id="wiring-platform---inputsystem">Wiring Platform -> InputSystem</h3>
+<p>Today, <code>EditorApplication</code> routes <code>Platform::Window</code> events directly into <code>UIManager</code>:</p>
+<ul>
+<li><code>SetMouseMoveHandler</code> → <code>ui->OnMouseMove</code></li>
+<li><code>SetMouseButtonHandler</code> → <code>ui->OnMouseButton</code></li>
+<li><code>SetCharHandler</code> → <code>ui->OnChar</code></li>
+<li><code>SetKeyHandler</code> → <code>ui->OnKey</code></li>
+</ul>
+<p>With <code>InputSystem</code>, the plan is:</p>
+<ul>
+<li><code>EditorApplication</code> owns an <code>Input::InputSystem</code> instance per editor process (or per window if needed later).</li>
+<li>Each <code>Platform::Window</code> forwards to <strong>both</strong>:
+<ul>
+<li><code>inputSystem.OnKey/OnMouse*</code> for global action mapping.</li>
+<li><code>ui->OnKey/OnMouse*</code> for UI-specific behavior (hover, focus, text fields).</li>
+</ul>
+</li>
+</ul>
+<p>This keeps UI behavior unchanged while letting us layer action mapping on top.</p>
+<h3 id="scene-view-actions-examples">Scene View actions (examples)</h3>
+<p>Proposed action &#x26; context names (string-based for flexibility):</p>
+<ul>
+<li>Context: <code>"Editor.SceneView"</code></li>
+<li>Actions:
+<ul>
+<li><code>"Editor.SceneView.Look"</code>          → RMB drag</li>
+<li><code>"Editor.SceneView.Orbit"</code>        → MMB drag</li>
+<li><code>"Editor.SceneView.Pan"</code>          → Shift+MMB drag (future)</li>
+<li><code>"Editor.SceneView.MoveForward"</code>  → W</li>
+<li><code>"Editor.SceneView.MoveBackward"</code> → S</li>
+<li><code>"Editor.SceneView.MoveLeft"</code>     → A</li>
+<li><code>"Editor.SceneView.MoveRight"</code>    → D</li>
+<li><code>"Editor.SceneView.Focus"</code>        → F (future picking integration)</li>
+<li><code>"Editor.SceneView.ToggleGrid"</code>   → G</li>
+</ul>
+</li>
+</ul>
+<p><code>SceneViewPanel</code> (or an <code>EditorCameraController</code> helper) would then:</p>
+<ul>
+<li>On update, poll <code>InputSystem</code>:
+<ul>
+<li><code>IsActionActive(HashInput("Editor.SceneView.MoveForward"))</code> etc.</li>
+<li><code>GetActionState(HashInput("Editor.SceneView.Look"))</code> for mouse-drag state.</li>
+</ul>
+</li>
+<li>Optionally register callbacks for one-shot actions:
+<ul>
+<li><code>AddActionListener(HashInput("Editor.SceneView.Focus"), ...)</code>.</li>
+</ul>
+</li>
+</ul>
+<p>This removes the need for SceneView to hand-roll its own WASD tracking and instead delegates to the shared module.</p>
+<hr>
+<h2 id="rebinding-and-persistence">Rebinding and Persistence</h2>
+<ul>
+<li>Input bindings are stored as data (<code>ActionDesc</code> + bindings) inside <code>InputSystem</code>.</li>
+<li>We expose simple JSON-based serialization for now, so editor tools can:
+<ul>
+<li>Save current bindings to disk (per-profile, per-project).</li>
+<li>Load bindings at startup or when the user switches profiles.</li>
+</ul>
+</li>
+<li>Longer term, bindings can be backed by an asset (<code>InputProfileAsset</code>) identified via <code>GUID</code>, similar to UI layouts/styles.</li>
+</ul>
+<hr>
+<h2 id="next-steps">Next Steps</h2>
+<ol>
+<li>Create <code>Engine/Modules/Input/Include/Input/InputSystem.h</code> with the above API skeleton.</li>
+<li>Add a minimal <code>Source/InputSystem.cpp</code> that implements <strong>no-op or minimal state</strong>, just enough to compile and start threading it into <code>EditorApplication</code>.</li>
+<li>Prototype Scene View integration by replacing the current WASD/drag state with calls into <code>InputSystem</code> while keeping UI events for focus/hover.</li>
+<li>Iterate on details (naming, context semantics, JSON format) once we see this in use in the editor.</li>
+</ol>
+  </main>
+</body>
+</html>
