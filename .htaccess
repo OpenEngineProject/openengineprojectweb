@@ -1,4 +1,8 @@
 RewriteEngine On
+# Temporary forwarding; preserve paths and query strings.
+RewriteCond %{HTTP_HOST} ^(?:www\.)?openengineproject\.com$ [NC]
+RewriteCond %{REQUEST_URI} !^/\.well-known/
+RewriteRule ^ https://openengine.dev%{REQUEST_URI} [R=302,L,NE]
 RewriteCond %{HTTPS} !=on
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 
